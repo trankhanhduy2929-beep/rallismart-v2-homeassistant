@@ -1,0 +1,8 @@
+{
+  "name": "RalliSmart V2",
+  "content_in_root": false,
+  "zip_release": false,
+  "render_readme": true,
+  "domains": ["light", "switch", "cover", "sensor", "binary_sensor", "camera", "scene", "button"],
+  "country": "VN"
+}

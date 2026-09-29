@@ -1,0 +1,41 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RalliSmart V2",
+        "description": "Sign in with your RalliSmart app account.",
+        "data": {
+          "username": "Username or email",
+          "password": "Password",
+          "device_name": "Device name sent to server"
+        }
+      },
+      "home": {
+        "title": "Select home",
+        "description": "Choose which home this integration should control.",
+        "data": {
+          "dormitory_id": "Home"
+        }
+      },
+      "license": {
+        "title": "License key",
+        "description": "Enter the License Key you received from the RalliSmart license website. Each key works on one Home Assistant install only.",
+        "data": {
+          "license_key": "License Key",
+          "license_server": "License server URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the RalliSmart server",
+      "invalid_auth": "Invalid credentials",
+      "no_homes": "This account has no home",
+      "invalid_license": "License key is invalid, expired, locked or already used on another install. Get a key at the license website.",
+      "license_network": "Cannot reach the license server. Check the URL / your connection.",
+      "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "This home is already configured"
+    }
+  }
+}

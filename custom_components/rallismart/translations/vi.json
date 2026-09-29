@@ -1,0 +1,41 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RalliSmart V2",
+        "description": "Đăng nhập bằng tài khoản app RalliSmart.",
+        "data": {
+          "username": "Tên đăng nhập hoặc email",
+          "password": "Mật khẩu",
+          "device_name": "Tên thiết bị gửi lên máy chủ"
+        }
+      },
+      "home": {
+        "title": "Chọn nhà",
+        "description": "Chọn nhà mà tích hợp này sẽ điều khiển.",
+        "data": {
+          "dormitory_id": "Nhà"
+        }
+      },
+      "license": {
+        "title": "Nhập License Key",
+        "description": "Nhập License Key bạn nhận được từ website bản quyền RalliSmart. Mỗi key chỉ dùng cho một cài đặt Home Assistant.",
+        "data": {
+          "license_key": "License Key",
+          "license_server": "Địa chỉ máy chủ bản quyền"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Không kết nối được máy chủ RalliSmart",
+      "invalid_auth": "Sai thông tin đăng nhập",
+      "no_homes": "Tài khoản này chưa có nhà",
+      "invalid_license": "License Key không hợp lệ, đã hết hạn, bị khóa hoặc đã dùng cho cài đặt khác. Mua key tại website bản quyền.",
+      "license_network": "Không kết nối được máy chủ bản quyền. Kiểm tra địa chỉ/kết nối mạng.",
+      "unknown": "Lỗi không xác định"
+    },
+    "abort": {
+      "already_configured": "Nhà này đã được cấu hình"
+    }
+  }
+}
