@@ -17,6 +17,7 @@ from homeassistant.helpers.event import (
 
 from .api import RalliSmartApi, RalliSmartApiError, RalliSmartAuthError
 from .const import (
+    ACTIVATE_URL,
     CONF_DEVICE_NAME,
     CONF_DORMITORY,
     CONF_LICENSE_KEY,
@@ -25,7 +26,6 @@ from .const import (
     DEFAULT_LICENSE_SERVER,
     DOMAIN,
     LICENSE_HEARTBEAT_HOURS,
-    WEBSITE_URL,
 )
 from .coordinator import RalliSmartCoordinator
 from .hub import RangDongHub, RangDongHubError
@@ -48,7 +48,7 @@ PLATFORMS = [
 def _notify_license(hass: HomeAssistant, message: str, notification_id: str) -> None:
     persistent_notification.async_create(
         hass,
-        f"{message}\n\n[Buy / Mua, gia hạn License Key]({WEBSITE_URL}). "
+        f"{message}\n\n[Kích hoạt / lấy License Key]({ACTIVATE_URL}). "
         f"[Enter / Nhập key: RalliSmart Options](/config/integrations/integration/{DOMAIN}) "
         "— Configure / Cấu hình. Không cần xóa tích hợp; account/home/entity IDs giữ nguyên.",
         title="RalliSmart V2 — License / Bản quyền",

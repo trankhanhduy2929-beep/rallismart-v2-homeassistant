@@ -19,10 +19,9 @@
       },
       "license": {
         "title": "License key",
-        "description": "New installations require a License Key. [Buy or renew a key]({website_url}). Each key works on one Home Assistant install only. Existing entries without a key retain pre-upgrade behavior in legacy compatibility mode; add a key in Options without deleting the integration.",
+        "description": "New installations require a License Key. [Click to open the activation page and get your key]({activate_url}). Each key works on one Home Assistant install only. Existing entries without a key retain pre-upgrade behavior in legacy compatibility mode; add a key in Options without deleting the integration.",
         "data": {
-          "license_key": "License Key",
-          "license_server": "License server URL"
+          "license_key": "License Key"
         }
       }
     },
@@ -43,10 +42,9 @@
     "step": {
       "init": {
         "title": "Configure license",
-        "description": "Add or update your License Key and server. Re-enter your current key when changing only the server. [Buy or renew a key]({website_url}). Saving validates the license and reloads this entry; account, home and entity IDs stay unchanged. Legacy compatibility: existing entries without a key keep pre-upgrade behavior until a key is added. Once configured, server license results are enforced; clearing the key is not supported.",
+        "description": "Add or update your License Key. [Click to open the activation page and get your key]({activate_url}). Saving validates the license and reloads this entry; account, home and entity IDs stay unchanged. Legacy compatibility: existing entries without a key keep pre-upgrade behavior until a key is added. Once configured, server license results are enforced; clearing the key is not supported.",
         "data": {
-          "license_key": "License Key",
-          "license_server": "License server URL"
+          "license_key": "License Key"
         }
       }
     },

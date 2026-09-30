@@ -21,11 +21,11 @@ Website, database Neon và webhook PayOS đã được triển khai. Đăng ký 
 2. Thêm `https://github.com/trankhanhduy2929-beep/rallismart-v2-homeassistant`, loại **Integration**.
 3. Tải **RalliSmart V2**, sau đó khởi động lại Home Assistant.
 4. Vào Settings → Devices & Services → Add Integration → RalliSmart V2.
-5. Nhập tài khoản RalliSmart, chọn nhà, nhập License Key.
+5. Nhập tài khoản RalliSmart, chọn nhà, nhập License Key. Địa chỉ máy chủ bản quyền được tích hợp sẵn — không cần nhập; bấm link trong form để mở trang kích hoạt lấy key.
 
 ## Cài thủ công
 
-1. Giải nén `rallismart-custom-0.5.1.zip`.
+1. Giải nén `rallismart-custom-0.5.2.zip`.
 2. Copy thư mục `custom_components/rallismart` vào `/config/custom_components/rallismart`.
 3. Khởi động lại Home Assistant, rồi thêm integration như trên.
 

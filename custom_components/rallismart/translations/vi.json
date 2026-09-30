@@ -19,10 +19,9 @@
       },
       "license": {
         "title": "Nhập License Key",
-        "description": "Cài đặt mới yêu cầu License Key. [Mua hoặc gia hạn key]({website_url}). Mỗi key chỉ dùng cho một cài đặt Home Assistant. Tích hợp cũ chưa có key giữ nguyên hoạt động trước nâng cấp trong chế độ tương thích bản cũ; nhập key trong Tùy chọn (Options), không cần xóa tích hợp.",
+        "description": "Cài đặt mới yêu cầu License Key. [Bấm để mở trang kích hoạt và lấy key]({activate_url}). Mỗi key chỉ dùng cho một cài đặt Home Assistant. Tích hợp cũ chưa có key giữ nguyên hoạt động trước nâng cấp trong chế độ tương thích bản cũ; nhập key trong Tùy chọn (Options), không cần xóa tích hợp.",
         "data": {
-          "license_key": "License Key",
-          "license_server": "Địa chỉ máy chủ bản quyền"
+          "license_key": "License Key"
         }
       }
     },
@@ -43,10 +42,9 @@
     "step": {
       "init": {
         "title": "Cấu hình bản quyền",
-        "description": "Thêm hoặc cập nhật License Key và máy chủ. Nhập lại key hiện tại nếu chỉ đổi máy chủ. [Mua hoặc gia hạn key]({website_url}). Lưu sẽ xác thực license và tải lại tích hợp; giữ nguyên tài khoản, nhà và ID thực thể. Tương thích bản cũ: tích hợp cũ chưa có key tiếp tục hoạt động như trước nâng cấp cho đến khi thêm key. Khi đã cấu hình key, kết quả kiểm tra bản quyền từ máy chủ được áp dụng; không hỗ trợ xóa key.",
+        "description": "Thêm hoặc cập nhật License Key. [Bấm để mở trang kích hoạt và lấy key]({activate_url}). Lưu sẽ xác thực license và tải lại tích hợp; giữ nguyên tài khoản, nhà và ID thực thể. Tương thích bản cũ: tích hợp cũ chưa có key tiếp tục hoạt động như trước nâng cấp cho đến khi thêm key. Khi đã cấu hình key, kết quả kiểm tra bản quyền từ máy chủ được áp dụng; không hỗ trợ xóa key.",
         "data": {
-          "license_key": "License Key",
-          "license_server": "Địa chỉ máy chủ bản quyền"
+          "license_key": "License Key"
         }
       }
     },

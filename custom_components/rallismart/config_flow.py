@@ -17,6 +17,7 @@ from homeassistant.helpers.selector import (
 
 from .api import RalliSmartApi, RalliSmartApiError, RalliSmartAuthError
 from .const import (
+    ACTIVATE_URL,
     CONF_DEVICE_NAME,
     CONF_DORMITORY,
     CONF_DORMITORY_NAME,
@@ -25,18 +26,16 @@ from .const import (
     DEFAULT_DEVICE_NAME,
     DEFAULT_LICENSE_SERVER,
     DOMAIN,
-    WEBSITE_URL,
 )
 from .license import LicenseError, LicenseManager, async_get_install_id
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def _activate_license(hass: HomeAssistant, user_input: dict[str, Any]):
+async def _activate_license(hass: HomeAssistant, user_input: dict[str, Any], server: str):
     try:
         manager = LicenseManager(
-            hass, async_get_clientsession(hass),
-            user_input.get(CONF_LICENSE_SERVER, DEFAULT_LICENSE_SERVER),
+            hass, async_get_clientsession(hass), server,
             user_input.get(CONF_LICENSE_KEY, ""), await async_get_install_id(hass),
         )
         await manager.async_activate()
@@ -50,12 +49,11 @@ async def _activate_license(hass: HomeAssistant, user_input: dict[str, Any]):
     return {CONF_LICENSE_KEY: manager.key, CONF_LICENSE_SERVER: manager.server}, {}
 
 
-def _license_schema(server: str) -> vol.Schema:
+def _license_schema() -> vol.Schema:
     return vol.Schema({
         vol.Required(CONF_LICENSE_KEY): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
-        vol.Required(CONF_LICENSE_SERVER, default=server): str,
     })
 
 
@@ -128,13 +126,13 @@ class RalliSmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_license(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
         if user_input is not None:
-            data, errors = await _activate_license(self.hass, user_input)
+            data, errors = await _activate_license(self.hass, user_input, DEFAULT_LICENSE_SERVER)
             if not errors:
                 return self._create(data)
 
         return self.async_show_form(
-            step_id="license", data_schema=_license_schema(DEFAULT_LICENSE_SERVER),
-            errors=errors, description_placeholders={"website_url": WEBSITE_URL},
+            step_id="license", data_schema=_license_schema(),
+            errors=errors, description_placeholders={"activate_url": ACTIVATE_URL},
         )
 
     def _create(self, license_input: dict[str, Any]):
@@ -158,8 +156,9 @@ class RalliSmartOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
         entry = self.config_entry
+        server = entry.data.get(CONF_LICENSE_SERVER) or DEFAULT_LICENSE_SERVER
         if user_input is not None:
-            data, errors = await _activate_license(self.hass, user_input)
+            data, errors = await _activate_license(self.hass, user_input, server)
             if not errors:
                 self.hass.config_entries.async_update_entry(
                     entry, data={**entry.data, **data},
@@ -169,9 +168,7 @@ class RalliSmartOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=_license_schema(
-                entry.data.get(CONF_LICENSE_SERVER) or DEFAULT_LICENSE_SERVER
-            ),
+            data_schema=_license_schema(),
             errors=errors,
-            description_placeholders={"website_url": WEBSITE_URL},
+            description_placeholders={"activate_url": ACTIVATE_URL},
         )

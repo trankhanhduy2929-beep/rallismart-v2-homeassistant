@@ -10,4 +10,5 @@ SCAN_INTERVAL_SEC = 30
 # License
 DEFAULT_LICENSE_SERVER = "https://rallismart-license.vercel.app"
 WEBSITE_URL = "https://rallismart-license.vercel.app"
+ACTIVATE_URL = WEBSITE_URL + "/activate"
 LICENSE_HEARTBEAT_HOURS = 6
