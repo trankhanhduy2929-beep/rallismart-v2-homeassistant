@@ -6,7 +6,7 @@ Repository HACS: https://github.com/trankhanhduy2929-beep/rallismart-v2-homeassi
 
 ## Trạng thái dịch vụ
 
-Website, database Neon và webhook PayOS đã được triển khai. Đăng ký tài khoản mới đang tạm khóa cho tới khi quản trị viên cấu hình dịch vụ gửi email xác minh. Không chuyển tiền qua link ngoài website; chỉ thanh toán đơn do dashboard của tài khoản tạo.
+Website, database Neon và webhook PayOS đã được triển khai. Đăng ký tài khoản mới bằng email + mật khẩu là mở ngay, không cần xác minh email; chỉ cần đăng nhập là dùng được và nhận key dùng thử. Không chuyển tiền qua link ngoài website; chỉ thanh toán đơn do dashboard của tài khoản tạo.
 
 ## Yêu cầu
 
@@ -43,11 +43,9 @@ Nếu entry cũ chưa có key, thông báo tương thích sẽ hiện link websi
 
 ## License
 
-Sau khi đăng ký email được mở:
-
-1. Đăng ký tại https://rallismart-license.vercel.app/register và xác minh email qua hộp thư.
+1. Đăng ký tại https://rallismart-license.vercel.app/register bằng email + mật khẩu; tài khoản dùng được ngay, không cần xác minh email.
 2. Vào Dashboard, chọn gói:
-   - Dùng thử: miễn phí 1 ngày, một lần cho tài khoản đã xác minh và một lần cho ID cài đặt.
+   - Dùng thử: miễn phí 1 ngày, một lần cho tài khoản và một lần cho ID cài đặt.
    - 1 tháng: 30 ngày, 50.000đ.
    - Vĩnh viễn: 200.000đ.
 3. Thanh toán QR hoặc mở trang PayOS từ đơn trong dashboard.
