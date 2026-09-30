@@ -7,7 +7,13 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .api import RalliSmartApi, RalliSmartApiError, RalliSmartAuthError
 from .const import (
@@ -19,14 +25,47 @@ from .const import (
     DEFAULT_DEVICE_NAME,
     DEFAULT_LICENSE_SERVER,
     DOMAIN,
+    WEBSITE_URL,
 )
 from .license import LicenseError, LicenseManager, async_get_install_id
 
 _LOGGER = logging.getLogger(__name__)
 
 
+async def _activate_license(hass: HomeAssistant, user_input: dict[str, Any]):
+    try:
+        manager = LicenseManager(
+            hass, async_get_clientsession(hass),
+            user_input.get(CONF_LICENSE_SERVER, DEFAULT_LICENSE_SERVER),
+            user_input.get(CONF_LICENSE_KEY, ""), await async_get_install_id(hass),
+        )
+        await manager.async_activate()
+    except LicenseError as err:
+        return {}, {"base": {
+            "network": "license_network", "invalid_server": "invalid_license_server",
+        }.get(err.code, "invalid_license")}
+    except (OSError, ValueError, RuntimeError, TypeError):
+        _LOGGER.error("Unexpected license activation error")
+        return {}, {"base": "unknown"}
+    return {CONF_LICENSE_KEY: manager.key, CONF_LICENSE_SERVER: manager.server}, {}
+
+
+def _license_schema(server: str) -> vol.Schema:
+    return vol.Schema({
+        vol.Required(CONF_LICENSE_KEY): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Required(CONF_LICENSE_SERVER, default=server): str,
+    })
+
+
 class RalliSmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        return RalliSmartOptionsFlow()
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
@@ -89,29 +128,14 @@ class RalliSmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_license(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
         if user_input is not None:
-            session = async_get_clientsession(self.hass)
-            install_id = await async_get_install_id(self.hass)
-            server = user_input.get(CONF_LICENSE_SERVER) or DEFAULT_LICENSE_SERVER
-            manager = LicenseManager(
-                self.hass, session, server, user_input[CONF_LICENSE_KEY].strip(), install_id
-            )
-            try:
-                await manager.async_activate()
-            except LicenseError as err:
-                errors["base"] = "license_network" if err.code == "network" else "invalid_license"
-            except Exception:
-                _LOGGER.exception("unexpected error during license activation")
-                errors["base"] = "unknown"
-            else:
-                return self._create(user_input)
+            data, errors = await _activate_license(self.hass, user_input)
+            if not errors:
+                return self._create(data)
 
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_LICENSE_KEY): str,
-                vol.Optional(CONF_LICENSE_SERVER, default=DEFAULT_LICENSE_SERVER): str,
-            }
+        return self.async_show_form(
+            step_id="license", data_schema=_license_schema(DEFAULT_LICENSE_SERVER),
+            errors=errors, description_placeholders={"website_url": WEBSITE_URL},
         )
-        return self.async_show_form(step_id="license", data_schema=schema, errors=errors)
 
     def _create(self, license_input: dict[str, Any]):
         dorm = self._dormitory or self._dormitories[0]
@@ -127,4 +151,27 @@ class RalliSmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(
             title=dorm.get("name") or self._data[CONF_USERNAME],
             data=data,
+        )
+
+
+class RalliSmartOptionsFlow(config_entries.OptionsFlow):
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        errors: dict[str, str] = {}
+        entry = self.config_entry
+        if user_input is not None:
+            data, errors = await _activate_license(self.hass, user_input)
+            if not errors:
+                self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, **data},
+                )
+                self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return self.async_create_entry(title="", data=dict(entry.options))
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_license_schema(
+                entry.data.get(CONF_LICENSE_SERVER) or DEFAULT_LICENSE_SERVER
+            ),
+            errors=errors,
+            description_placeholders={"website_url": WEBSITE_URL},
         )

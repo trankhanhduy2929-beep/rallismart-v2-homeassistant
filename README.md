@@ -1,92 +1,81 @@
 # RalliSmart V2 — Tích hợp Home Assistant
 
-Điều khiển nhà Rang Dong RalliSmart V2 trên Home Assistant (đèn, công tắc,
-rèm/cửa cuốn, cảm biến, camera, scene).
+Website bản quyền: https://rallismart-license.vercel.app
 
----
+Repository HACS: https://github.com/trankhanhduy2929-beep/rallismart-v2-homeassistant
 
-## 1. Yêu cầu
+## Trạng thái dịch vụ
 
-- Home Assistant 2024.x trở lên (đã kiểm thử với HA 2026.2).
-- Tài khoản app **RalliSmart V2** (Rang Dong).
-- Một **License Key** (mua/đăng ký tại website bản quyền bên dưới).
+Website, database Neon và webhook PayOS đã được triển khai. Đăng ký tài khoản mới đang tạm khóa cho tới khi quản trị viên cấu hình dịch vụ gửi email xác minh. Không chuyển tiền qua link ngoài website; chỉ thanh toán đơn do dashboard của tài khoản tạo.
 
-Website bản quyền: **https://rallismart-license.vercel.app**
+## Yêu cầu
 
----
+- Home Assistant: đã kiểm thử các lớp tích hợp trên phiên bản 2026.2.3; chưa xác nhận tương thích với các bản cũ hơn.
+- Tài khoản app RalliSmart V2 của Rạng Đông.
+- HC01 dùng firmware v1; đã xác minh đường điều khiển SignalR trên firmware 1.2.45. Không hỗ trợ đường MQTT v2 trong bản này.
+- Cài đặt mới cần License Key. Bản đã cấu hình trước đây chưa có key tiếp tục hoạt động để không làm gián đoạn thiết bị.
 
-## 2. Cài đặt
+## Cài bằng HACS
 
-### Cách A — thủ công
-1. Giải nén file zip.
-2. Copy thư mục `custom_components/rallismart` vào:
-   ```
-   <thư-mục-config-HA>/custom_components/rallismart
-   ```
-   (thường là `/config/custom_components/rallismart`).
-3. Khởi động lại Home Assistant.
+1. Mở HACS → menu ba chấm → Custom repositories.
+2. Thêm `https://github.com/trankhanhduy2929-beep/rallismart-v2-homeassistant`, loại **Integration**.
+3. Tải **RalliSmart V2**, sau đó khởi động lại Home Assistant.
+4. Vào Settings → Devices & Services → Add Integration → RalliSmart V2.
+5. Nhập tài khoản RalliSmart, chọn nhà, nhập License Key.
 
-### Cách B — HACS
-1. HACS → Integrations → ⋮ → **Custom repositories**.
-2. Dán URL repo này, chọn loại **Integration**, Add.
-3. Tìm **RalliSmart V2** → Download → khởi động lại HA.
+## Cài thủ công
 
----
+1. Giải nén `rallismart-custom-0.5.1.zip`.
+2. Copy thư mục `custom_components/rallismart` vào `/config/custom_components/rallismart`.
+3. Khởi động lại Home Assistant, rồi thêm integration như trên.
 
-## 3. Lấy License Key
+Zip chỉ chứa thành phần cần cài và hướng dẫn, không chứa server, test, PoC, tài khoản hoặc khóa thanh toán. Mã Python là thành phần bắt buộc để Home Assistant nạp integration; không phải mã bị mã hóa.
 
-1. Mở website bản quyền: **https://rallismart-license.vercel.app**
-2. **Đăng ký** bằng email và xác minh email.
-3. Vào **Dashboard**:
-   - **Dùng thử miễn phí 1 ngày** (mỗi tài khoản 1 lần), hoặc
-   - **Mua gói**: 1 tháng 50.000đ / Vĩnh viễn 200.000đ.
-4. Quét QR PayOS để thanh toán. Hệ thống **tự động cấp License Key** ngay khi
-   thanh toán thành công (không cần chờ duyệt).
-5. Copy **License Key** (dạng `RDS-XXXX-XXXX-XXXX-XXXX`).
+## Nâng cấp bản đang chạy
 
-> Mỗi License Key **chỉ kích hoạt được trên một cài đặt Home Assistant**.
-> Nếu đổi máy, liên hệ admin để **reset** license.
+1. Sao lưu cấu hình Home Assistant trước khi cập nhật.
+2. Cập nhật bằng HACS hoặc ghi đè các file integration, rồi restart HA.
+3. Không xóa integration, thiết bị, entity hoặc automation đang có.
+4. Tài khoản, nhà, entity unique ID và các nút công tắc giữ nguyên.
+5. Vào Settings → Devices & Services → RalliSmart V2 → **Configure / Cấu hình** để nhập hoặc thay License Key. Việc lưu key sẽ nạp lại entry đó.
 
-> Địa chỉ máy chủ bản quyền mặc định là `https://rallismart-license.vercel.app`.
-> Nếu bạn triển khai server ở tên miền khác, sửa `DEFAULT_LICENSE_SERVER` và
-> `WEBSITE_URL` trong `custom_components/rallismart/const.py`, hoặc nhập địa
-> chỉ mới ở ô *License server URL* khi cấu hình.
+Nếu entry cũ chưa có key, thông báo tương thích sẽ hiện link website; thiết bị không bị chặn chỉ vì nâng cấp. Sau khi nhập key, entry chuyển sang kiểm tra license. Cài đặt mới luôn yêu cầu key hợp lệ.
 
----
+## License
 
-## 4. Thêm vào Home Assistant
+Sau khi đăng ký email được mở:
 
-1. **Settings → Devices & Services → Add Integration**.
-2. Tìm **RalliSmart V2**.
-3. Nhập lần lượt:
-   - **Tài khoản RalliSmart** (số điện thoại/email + mật khẩu app).
-   - **Chọn nhà** (nếu tài khoản có nhiều nhà).
-   - **License Key** (dán key đã lấy ở bước 3).
-4. Hoàn tất. Các thiết bị sẽ xuất hiện theo từng khu vực/thiết bị.
+1. Đăng ký tại https://rallismart-license.vercel.app/register và xác minh email qua hộp thư.
+2. Vào Dashboard, chọn gói:
+   - Dùng thử: miễn phí 1 ngày, một lần cho tài khoản đã xác minh và một lần cho ID cài đặt.
+   - 1 tháng: 30 ngày, 50.000đ.
+   - Vĩnh viễn: 200.000đ.
+3. Thanh toán QR hoặc mở trang PayOS từ đơn trong dashboard.
+4. Server kiểm tra chữ ký webhook và trạng thái thanh toán trên PayOS, sau đó tự cấp key. Không cần admin duyệt.
+5. Xem lại key và lịch sử đơn trên dashboard; dán key vào cấu hình integration.
 
----
+Mỗi key gắn với một ID cài đặt HA lưu trong `.storage/rallismart_install`. Nhiều nhà trong cùng cài đặt có thể dùng cùng key. Dùng trial rồi mua key mới không cần xóa integration. Đổi máy cần admin reset liên kết; xóa integration không tự giải phóng key.
 
-## 5. Thiết bị được hỗ trợ
+Không chia sẻ key, thư mục `.storage` hay bản sao cấu hình HA. Cơ chế này hạn chế chia sẻ thông thường; không thể chống tuyệt đối việc sao chép toàn bộ cài đặt hoặc sửa mã Python.
 
-| Loại | Chức năng |
-|------|-----------|
-| Đèn | Bật/tắt, độ sáng; đổi màu nhiệt độ (CCT) hoặc màu RGB tuỳ thiết bị |
-| Công tắc | Bật/tắt; panel nhiều nút hiện thành nhiều *Gang* trong cùng một thiết bị |
-| Rèm / cửa cuốn | Mở / dừng / đóng |
-| Cảm biến | Nhiệt độ, độ ẩm, bụi mịn PM2.5 |
-| Nhị phân | Khói, cửa, chuyển động |
-| Camera | Xem trực tiếp RTSP/Camera (nếu tài khoản đã cấu hình camera) |
-| Scene | Gọi/ kích hoạt các cảnh của app |
-| Button | *Identify* – nháy thiết bị để nhận biết |
+## Khi license hoặc mạng gặp sự cố
 
----
+- License bị khóa, thu hồi hoặc hết hạn: các entity chuyển unavailable; lệnh điều khiển bị chặn. Đổi key trong **Cấu hình**, không xóa entry.
+- Máy chủ license tạm mất kết nối khi integration đang chạy: giữ trạng thái hợp lệ đã biết, không vượt thời điểm hết hạn của key có thời hạn.
+- Khi HA khởi động lại, key đã cấu hình cần được xác thực online; lỗi mạng sẽ khiến HA thử lại.
+- Máy chủ chính thức: `https://rallismart-license.vercel.app`. Chỉ thay URL khi quản trị viên cung cấp địa chỉ HTTPS tin cậy, vì key sẽ được gửi tới máy chủ đó.
+- Không đưa tài khoản RalliSmart, License Key, URL RTSP chứa mật khẩu hoặc toàn bộ log bí mật vào issue công khai.
 
-## 6. Xử lý sự cố
+## Chức năng và giới hạn
 
-- **Không thêm được / báo license sai**: kiểm tra key đã copy đủ chưa; key có
-  thể đã hết hạn, bị khóa, hoặc đã dùng cho cài đặt khác (cần reset).
-- **Không kết nối máy chủ bản quyền**: kiểm tra mạng; có thể nhập lại địa chỉ
-  máy chủ bản quyền ở bước cấu hình.
-- **Một số cảm biến/camera không thấy**: chỉ hiện khi tài khoản/nhà thực sự có
-  thiết bị đó và (với camera) đã được cấu hình trong app.
-- **Để gỡ license**: xoá integration khỏi HA, hoặc liên hệ admin thu hồi key.
+- Công tắc nhiều nút: từng gang là entity riêng, gom vào thiết bị panel; giữ riêng địa chỉ điều khiển từng gang.
+- Đèn: on/off; DIM/CCT/RGB có mapping hiện có nhưng chưa kiểm chứng đủ mọi model.
+- Rèm/cửa cuốn: giữ chức năng hiện có; chiều và tính năng chưa được kiểm chứng đầy đủ, cần quan sát trực tiếp khi dùng lần đầu.
+- Sensor/binary sensor: chỉ hiện cho model đã có mapping, không tạo sensor giả cho nhà không có thiết bị đó.
+- Camera: HA cần truy cập được mạng chứa camera và URL RTSP hợp lệ; danh sách camera rỗng không chứng minh camera không có cấu hình trên app.
+- Scene và Identify: có thể thay đổi nhiều tải điện. Kiểm tra thiết bị đích trước khi nhấn. Chưa xác nhận đầy đủ trên phần cứng.
+- Trạng thái ban đầu có thể unknown cho tới khi nhận push. Không khẳng định mọi chức năng app gốc đã được hỗ trợ.
+
+## Báo lỗi
+
+https://github.com/trankhanhduy2929-beep/rallismart-v2-homeassistant/issues

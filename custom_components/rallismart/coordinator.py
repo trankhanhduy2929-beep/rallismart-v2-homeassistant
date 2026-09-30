@@ -210,6 +210,8 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
     # ---------- control ----------
 
     async def async_send_properties(self, uid: str, properties: list[dict[str, Any]]) -> None:
+        if not self.licensed:
+            raise RalliSmartApiError("License inactive; update License Key in Options")
         entry = (self.data or {}).get(uid)
         if not entry:
             raise RalliSmartApiError("unknown device")
@@ -233,6 +235,8 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         await self.async_send_properties(uid, cover_properties(action))
 
     async def _send(self, message: dict[str, Any]) -> None:
+        if not self.licensed:
+            raise RalliSmartApiError("License inactive; update License Key in Options")
         try:
             await self.hub.send_command(self.dormitory_id, message)
         except RangDongHubError:

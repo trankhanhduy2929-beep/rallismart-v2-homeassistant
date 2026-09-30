@@ -19,7 +19,7 @@
       },
       "license": {
         "title": "Nhập License Key",
-        "description": "Nhập License Key bạn nhận được từ website bản quyền RalliSmart. Mỗi key chỉ dùng cho một cài đặt Home Assistant.",
+        "description": "Cài đặt mới yêu cầu License Key. [Mua hoặc gia hạn key]({website_url}). Mỗi key chỉ dùng cho một cài đặt Home Assistant. Tích hợp cũ chưa có key giữ nguyên hoạt động trước nâng cấp trong chế độ tương thích bản cũ; nhập key trong Tùy chọn (Options), không cần xóa tích hợp.",
         "data": {
           "license_key": "License Key",
           "license_server": "Địa chỉ máy chủ bản quyền"
@@ -31,11 +31,30 @@
       "invalid_auth": "Sai thông tin đăng nhập",
       "no_homes": "Tài khoản này chưa có nhà",
       "invalid_license": "License Key không hợp lệ, đã hết hạn, bị khóa hoặc đã dùng cho cài đặt khác. Mua key tại website bản quyền.",
+      "invalid_license_server": "Dùng URL HTTPS hợp lệ, không chứa thông tin đăng nhập, query hoặc fragment. HTTP chỉ được dùng trên loopback để kiểm thử.",
       "license_network": "Không kết nối được máy chủ bản quyền. Kiểm tra địa chỉ/kết nối mạng.",
       "unknown": "Lỗi không xác định"
     },
     "abort": {
       "already_configured": "Nhà này đã được cấu hình"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cấu hình bản quyền",
+        "description": "Thêm hoặc cập nhật License Key và máy chủ. Nhập lại key hiện tại nếu chỉ đổi máy chủ. [Mua hoặc gia hạn key]({website_url}). Lưu sẽ xác thực license và tải lại tích hợp; giữ nguyên tài khoản, nhà và ID thực thể. Tương thích bản cũ: tích hợp cũ chưa có key tiếp tục hoạt động như trước nâng cấp cho đến khi thêm key. Khi đã cấu hình key, kết quả kiểm tra bản quyền từ máy chủ được áp dụng; không hỗ trợ xóa key.",
+        "data": {
+          "license_key": "License Key",
+          "license_server": "Địa chỉ máy chủ bản quyền"
+        }
+      }
+    },
+    "error": {
+      "invalid_license": "License Key không hợp lệ, đã hết hạn, bị khóa hoặc đã dùng cho cài đặt khác. Cấu hình hiện tại chưa thay đổi.",
+      "invalid_license_server": "Dùng URL HTTPS hợp lệ, không chứa thông tin đăng nhập, query hoặc fragment. HTTP chỉ được dùng trên loopback để kiểm thử.",
+      "license_network": "Không kết nối được máy chủ bản quyền. Cấu hình hiện tại chưa thay đổi. Kiểm tra mạng rồi thử lại.",
+      "unknown": "Không xác thực được license. Cấu hình hiện tại chưa thay đổi."
     }
   }
 }

@@ -19,7 +19,7 @@
       },
       "license": {
         "title": "License key",
-        "description": "Enter the License Key you received from the RalliSmart license website. Each key works on one Home Assistant install only.",
+        "description": "New installations require a License Key. [Buy or renew a key]({website_url}). Each key works on one Home Assistant install only. Existing entries without a key retain pre-upgrade behavior in legacy compatibility mode; add a key in Options without deleting the integration.",
         "data": {
           "license_key": "License Key",
           "license_server": "License server URL"
@@ -31,11 +31,30 @@
       "invalid_auth": "Invalid credentials",
       "no_homes": "This account has no home",
       "invalid_license": "License key is invalid, expired, locked or already used on another install. Get a key at the license website.",
+      "invalid_license_server": "Use a valid HTTPS server URL without credentials, query or fragment. HTTP is allowed only for loopback testing.",
       "license_network": "Cannot reach the license server. Check the URL / your connection.",
       "unknown": "Unknown error"
     },
     "abort": {
       "already_configured": "This home is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure license",
+        "description": "Add or update your License Key and server. Re-enter your current key when changing only the server. [Buy or renew a key]({website_url}). Saving validates the license and reloads this entry; account, home and entity IDs stay unchanged. Legacy compatibility: existing entries without a key keep pre-upgrade behavior until a key is added. Once configured, server license results are enforced; clearing the key is not supported.",
+        "data": {
+          "license_key": "License Key",
+          "license_server": "License server URL"
+        }
+      }
+    },
+    "error": {
+      "invalid_license": "License key is invalid, expired, locked or already used on another install. Existing settings were not changed.",
+      "invalid_license_server": "Use a valid HTTPS server URL without credentials, query or fragment. HTTP is allowed only for loopback testing.",
+      "license_network": "Cannot reach the license server. Existing settings were not changed. Check your connection and try again.",
+      "unknown": "Could not validate the license. Existing settings were not changed."
     }
   }
 }

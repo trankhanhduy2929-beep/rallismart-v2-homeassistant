@@ -2,14 +2,18 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import (
+    async_track_point_in_utc_time,
+    async_track_time_interval,
+)
 
 from .api import RalliSmartApi, RalliSmartApiError, RalliSmartAuthError
 from .const import (
@@ -42,20 +46,14 @@ PLATFORMS = [
 
 
 def _notify_license(hass: HomeAssistant, message: str, notification_id: str) -> None:
-    try:
-        hass.async_create_task(
-            hass.services.async_call(
-                "persistent_notification",
-                "create",
-                {
-                    "title": "RalliSmart V2 — Bản quyền",
-                    "message": f"{message}<br/>Mua/gia hạn tại: <a href='{WEBSITE_URL}'>{WEBSITE_URL}</a>",
-                    "notification_id": notification_id,
-                },
-            )
-        )
-    except Exception:
-        _LOGGER.debug("could not create notification", exc_info=True)
+    persistent_notification.async_create(
+        hass,
+        f"{message}\n\n[Buy / Mua, gia hạn License Key]({WEBSITE_URL}). "
+        f"[Enter / Nhập key: RalliSmart Options](/config/integrations/integration/{DOMAIN}) "
+        "— Configure / Cấu hình. Không cần xóa tích hợp; account/home/entity IDs giữ nguyên.",
+        title="RalliSmart V2 — License / Bản quyền",
+        notification_id=notification_id,
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -72,26 +70,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except RalliSmartApiError as err:
         raise ConfigEntryNotReady("cannot reach RalliSmart") from err
 
-    # ---- License check (no secrets stored locally) ----
-    install_id = await async_get_install_id(hass)
-    manager = LicenseManager(
-        hass,
-        session,
-        entry.data.get(CONF_LICENSE_SERVER, DEFAULT_LICENSE_SERVER),
-        entry.data.get(CONF_LICENSE_KEY, ""),
-        install_id,
-    )
-    try:
-        await manager.async_activate()
-    except LicenseError as err:
-        if err.code == "network":
-            raise ConfigEntryNotReady("RalliSmart license server unreachable") from err
+    manager = None
+    notification_id = f"{DOMAIN}_license_{entry.entry_id}"
+    if entry.data.get(CONF_LICENSE_KEY):
+        try:
+            manager = LicenseManager(
+                hass,
+                session,
+                entry.data.get(CONF_LICENSE_SERVER) or DEFAULT_LICENSE_SERVER,
+                entry.data[CONF_LICENSE_KEY],
+                await async_get_install_id(hass),
+            )
+            await manager.async_activate()
+        except LicenseError as err:
+            if err.code == "network":
+                raise ConfigEntryNotReady("RalliSmart license server unreachable") from None
+            _notify_license(
+                hass,
+                "License không hợp lệ. Kiểm tra License Key và máy chủ trong Options.",
+                notification_id,
+            )
+            raise ConfigEntryAuthFailed("RalliSmart license invalid; open Options") from None
+        persistent_notification.async_dismiss(hass, notification_id)
+    else:
         _notify_license(
             hass,
-            f"License không hợp lệ ({err.code}). Vui lòng kiểm tra lại key.",
-            f"{DOMAIN}_license",
+            "Legacy compatibility / Tương thích bản cũ: chưa có License Key; "
+            "tích hợp tiếp tục hoạt động như trước nâng cấp. "
+            "Cài đặt mới yêu cầu license. Nhập key để chuyển sang kiểm tra bản quyền.",
+            notification_id,
         )
-        raise ConfigEntryAuthFailed(f"license {err.code}") from err
 
     try:
         dormitories = await api.list_dormitories()
@@ -113,23 +121,59 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await coordinator.async_config_entry_first_refresh()
 
-    async def _heartbeat(_now) -> None:
-        state = await manager.async_verify()
-        was = coordinator.licensed
-        coordinator.licensed = state["valid"]
-        if coordinator.licensed != was:
-            coordinator.async_set_updated_data(coordinator.data)
-        if not coordinator.licensed:
-            _LOGGER.warning("RalliSmart license no longer valid: %s", state["code"])
-            _notify_license(
-                hass,
-                f"License đã hết hạn hoặc bị khóa ({state['code']}).",
-                f"{DOMAIN}_license",
-            )
+    cancel = None
+    cancel_expiry = None
+    if manager is not None:
+        stopped = False
 
-    cancel = async_track_time_interval(
-        hass, _heartbeat, timedelta(hours=LICENSE_HEARTBEAT_HOURS)
-    )
+        @callback
+        def _update_license(_now=None) -> None:
+            was = coordinator.licensed
+            coordinator.licensed = manager.valid
+            if coordinator.licensed != was:
+                coordinator.async_set_updated_data(coordinator.data)
+            if not coordinator.licensed:
+                _LOGGER.warning("RalliSmart license no longer valid")
+                _notify_license(
+                    hass,
+                    "License đã hết hạn hoặc không còn hợp lệ. Mở Options để cập nhật.",
+                    notification_id,
+                )
+            elif not was:
+                persistent_notification.async_dismiss(hass, notification_id)
+
+        @callback
+        def _schedule_expiry() -> None:
+            nonlocal cancel_expiry
+            if cancel_expiry is not None:
+                cancel_expiry()
+                cancel_expiry = None
+            if coordinator.licensed and manager.expires_at is not None:
+                cancel_expiry = async_track_point_in_utc_time(
+                    hass, _update_license, datetime.fromisoformat(manager.expires_at)
+                )
+
+        async def _heartbeat(_now) -> None:
+            if stopped:
+                return
+            await manager.async_verify()
+            if not stopped:
+                _update_license()
+                _schedule_expiry()
+
+        _update_license()
+        _schedule_expiry()
+        cancel_interval = async_track_time_interval(
+            hass, _heartbeat, timedelta(hours=LICENSE_HEARTBEAT_HOURS)
+        )
+
+        @callback
+        def cancel() -> None:
+            nonlocal stopped
+            stopped = True
+            cancel_interval()
+            if cancel_expiry is not None:
+                cancel_expiry()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "api": api,
