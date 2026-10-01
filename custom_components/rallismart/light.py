@@ -64,12 +64,14 @@ class RalliSmartLight(RalliSmartEntity, LightEntity):
     def __init__(self, coordinator: RalliSmartCoordinator, uid: str) -> None:
         super().__init__(coordinator, uid)
         self._caps = light_capabilities(coordinator.data[uid]["device"])
-        modes = {ColorMode.BRIGHTNESS}
-        if self._caps["cct"]:
-            modes.add(ColorMode.COLOR_TEMP)
-        if self._caps["rgb"]:
-            modes.add(ColorMode.HS)
-        self._attr_supported_color_modes = modes
+        if self._caps["rgb"] and self._caps["cct"]:
+            self._attr_supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP}
+        elif self._caps["rgb"]:
+            self._attr_supported_color_modes = {ColorMode.HS}
+        elif self._caps["cct"]:
+            self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
+        else:
+            self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
 
     def _state(self, attr_id: int) -> Any:
         return self.coordinator.state_value(self._uid, attr_id)
@@ -104,6 +106,10 @@ class RalliSmartLight(RalliSmartEntity, LightEntity):
         if self._caps["rgb"] and self._state(ATTR_HUE) is not None:
             return ColorMode.HS
         if self._caps["cct"] and self._state(ATTR_CCT) is not None:
+            return ColorMode.COLOR_TEMP
+        if self._caps["rgb"]:
+            return ColorMode.HS
+        if self._caps["cct"]:
             return ColorMode.COLOR_TEMP
         return ColorMode.BRIGHTNESS
 

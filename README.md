@@ -25,7 +25,7 @@ Website, database Neon và webhook PayOS đã được triển khai. Đăng ký 
 
 ## Cài thủ công
 
-1. Giải nén `rallismart-custom-0.5.3.zip`.
+1. Giải nén `rallismart-custom-0.5.4.zip`.
 2. Copy thư mục `custom_components/rallismart` vào `/config/custom_components/rallismart`.
 3. Khởi động lại Home Assistant, rồi thêm integration như trên.
 

@@ -9,11 +9,15 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
-    PERCENTAGE,
-    UnitOfTemperature,
-)
+from homeassistant.const import PERCENTAGE, UnitOfTemperature
+
+try:
+    from homeassistant.const import UnitOfDensity
+    PM25_UNIT = UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
+except ImportError:
+    from homeassistant.const import (
+        CONCENTRATION_MICROGRAMS_PER_CUBIC_METER as PM25_UNIT,
+    )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -35,8 +39,7 @@ KINDS: dict[str, tuple[int, SensorDeviceClass | None, str | None, SensorStateCla
                     SensorStateClass.MEASUREMENT),
     "humidity": (ATTR_HUMIDITY, SensorDeviceClass.HUMIDITY, PERCENTAGE,
                  SensorStateClass.MEASUREMENT),
-    "pm25": (ATTR_PM25, SensorDeviceClass.PM25,
-             CONCENTRATION_MICROGRAMS_PER_CUBIC_METER, SensorStateClass.MEASUREMENT),
+    "pm25": (ATTR_PM25, SensorDeviceClass.PM25, PM25_UNIT, SensorStateClass.MEASUREMENT),
 }
 
 
