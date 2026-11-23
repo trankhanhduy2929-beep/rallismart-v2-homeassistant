@@ -32,6 +32,20 @@ from .license import LicenseError, LicenseManager, async_get_install_id
 
 _LOGGER = logging.getLogger(__name__)
 
+_LICENSE_ERRORS = {
+    "network": "license_network",
+    "invalid_server": "invalid_license_server",
+    "invalid_key": "license_key_invalid",
+    "already_activated": "license_already_activated",
+    "trial_used": "license_trial_used",
+    "expired": "license_expired",
+    "revoked": "license_revoked",
+    "locked": "license_locked",
+    "bad_request": "license_bad_request",
+    "bad_response": "license_bad_response",
+    "rate_limited": "license_rate_limited",
+}
+
 
 async def _activate_license(hass: HomeAssistant, user_input: dict[str, Any], server: str):
     try:
@@ -41,9 +55,8 @@ async def _activate_license(hass: HomeAssistant, user_input: dict[str, Any], ser
         )
         await manager.async_activate()
     except LicenseError as err:
-        return {}, {"base": {
-            "network": "license_network", "invalid_server": "invalid_license_server",
-        }.get(err.code, "invalid_license")}
+        _LOGGER.warning("License activation rejected: %s", err.code)
+        return {}, {"base": _LICENSE_ERRORS.get(err.code, "invalid_license")}
     except (OSError, ValueError, RuntimeError, TypeError):
         _LOGGER.error("Unexpected license activation error")
         return {}, {"base": "unknown"}

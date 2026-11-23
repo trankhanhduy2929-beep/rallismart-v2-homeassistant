@@ -25,7 +25,16 @@
       "invalid_license": "License key is invalid, expired, locked or already used on another install. Get a key at the license website.",
       "invalid_license_server": "Use a valid HTTPS server URL without credentials, query or fragment. HTTP is allowed only for loopback testing.",
       "license_network": "Cannot reach the license server. Check the URL / your connection.",
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "license_key_invalid": "License key not found. Check the key in your license dashboard; keys look like RDS-XXXX-XXXX-XXXX-XXXX.",
+      "license_already_activated": "This key is already bound to another Home Assistant install. Ask the license admin to reset the binding, or use a key for this install.",
+      "license_trial_used": "The free trial was already used on this Home Assistant install. Buy a paid key to continue.",
+      "license_expired": "This license has expired. Renew it or get a new key.",
+      "license_revoked": "This license was revoked. Get a new key at the license website.",
+      "license_locked": "This license is locked. Contact the license admin.",
+      "license_bad_request": "The license server rejected the request. Check the integration version, then try again.",
+      "license_bad_response": "The license server returned an invalid response. Try again later.",
+      "license_rate_limited": "Too many attempts. Wait a few minutes and try again."
     },
     "abort": {
       "already_configured": "This home is already configured"
@@ -45,7 +54,16 @@
       "invalid_license": "License key is invalid, expired, locked or already used on another install. Existing settings were not changed.",
       "invalid_license_server": "Use a valid HTTPS server URL without credentials, query or fragment. HTTP is allowed only for loopback testing.",
       "license_network": "Cannot reach the license server. Existing settings were not changed. Check your connection and try again.",
-      "unknown": "Could not validate the license. Existing settings were not changed."
+      "unknown": "Could not validate the license. Existing settings were not changed.",
+      "license_key_invalid": "License key not found. Check the key in your license dashboard; keys look like RDS-XXXX-XXXX-XXXX-XXXX.",
+      "license_already_activated": "This key is already bound to another Home Assistant install. Ask the license admin to reset the binding, or use a key for this install.",
+      "license_trial_used": "The free trial was already used on this Home Assistant install. Buy a paid key to continue.",
+      "license_expired": "This license has expired. Renew it or get a new key.",
+      "license_revoked": "This license was revoked. Get a new key at the license website.",
+      "license_locked": "This license is locked. Contact the license admin.",
+      "license_bad_request": "The license server rejected the request. Check the integration version, then try again.",
+      "license_bad_response": "The license server returned an invalid response. Try again later.",
+      "license_rate_limited": "Too many attempts. Wait a few minutes and try again."
     }
   }
 }

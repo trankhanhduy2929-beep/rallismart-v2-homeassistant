@@ -25,7 +25,16 @@
       "invalid_license": "License Key không hợp lệ, đã hết hạn, bị khóa hoặc đã dùng cho cài đặt khác. Mua key tại website bản quyền.",
       "invalid_license_server": "Dùng URL HTTPS hợp lệ, không chứa thông tin đăng nhập, query hoặc fragment. HTTP chỉ được dùng trên loopback để kiểm thử.",
       "license_network": "Không kết nối được máy chủ bản quyền. Kiểm tra địa chỉ/kết nối mạng.",
-      "unknown": "Lỗi không xác định"
+      "unknown": "Lỗi không xác định",
+      "license_key_invalid": "Không tìm thấy License Key. Kiểm tra key trong dashboard bản quyền; key có dạng RDS-XXXX-XXXX-XXXX-XXXX.",
+      "license_already_activated": "Key này đã gắn với một cài đặt Home Assistant khác. Nhờ admin bản quyền reset liên kết, hoặc dùng key của cài đặt này.",
+      "license_trial_used": "Bản dùng thử miễn phí đã được dùng trên cài đặt Home Assistant này. Cần mua key trả phí để tiếp tục.",
+      "license_expired": "License đã hết hạn. Gia hạn hoặc lấy key mới.",
+      "license_revoked": "License đã bị thu hồi. Lấy key mới tại website bản quyền.",
+      "license_locked": "License đang bị khóa. Liên hệ admin bản quyền.",
+      "license_bad_request": "Máy chủ bản quyền từ chối yêu cầu. Kiểm tra phiên bản tích hợp rồi thử lại.",
+      "license_bad_response": "Máy chủ bản quyền trả về dữ liệu không hợp lệ. Thử lại sau.",
+      "license_rate_limited": "Quá nhiều lần thử. Đợi vài phút rồi thử lại."
     },
     "abort": {
       "already_configured": "Nhà này đã được cấu hình"
@@ -45,7 +54,16 @@
       "invalid_license": "License Key không hợp lệ, đã hết hạn, bị khóa hoặc đã dùng cho cài đặt khác. Cấu hình hiện tại chưa thay đổi.",
       "invalid_license_server": "Dùng URL HTTPS hợp lệ, không chứa thông tin đăng nhập, query hoặc fragment. HTTP chỉ được dùng trên loopback để kiểm thử.",
       "license_network": "Không kết nối được máy chủ bản quyền. Cấu hình hiện tại chưa thay đổi. Kiểm tra mạng rồi thử lại.",
-      "unknown": "Không xác thực được license. Cấu hình hiện tại chưa thay đổi."
+      "unknown": "Không xác thực được license. Cấu hình hiện tại chưa thay đổi.",
+      "license_key_invalid": "Không tìm thấy License Key. Kiểm tra key trong dashboard bản quyền; key có dạng RDS-XXXX-XXXX-XXXX-XXXX.",
+      "license_already_activated": "Key này đã gắn với một cài đặt Home Assistant khác. Nhờ admin bản quyền reset liên kết, hoặc dùng key của cài đặt này.",
+      "license_trial_used": "Bản dùng thử miễn phí đã được dùng trên cài đặt Home Assistant này. Cần mua key trả phí để tiếp tục.",
+      "license_expired": "License đã hết hạn. Gia hạn hoặc lấy key mới.",
+      "license_revoked": "License đã bị thu hồi. Lấy key mới tại website bản quyền.",
+      "license_locked": "License đang bị khóa. Liên hệ admin bản quyền.",
+      "license_bad_request": "Máy chủ bản quyền từ chối yêu cầu. Kiểm tra phiên bản tích hợp rồi thử lại.",
+      "license_bad_response": "Máy chủ bản quyền trả về dữ liệu không hợp lệ. Thử lại sau.",
+      "license_rate_limited": "Quá nhiều lần thử. Đợi vài phút rồi thử lại."
     }
   }
 }
