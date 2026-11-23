@@ -37,6 +37,16 @@ DIM_MAX = 100
 CCT_MIN_KELVIN = 2700
 CCT_MAX_KELVIN = 6500
 
+# --- HC v2 field mapping (cloud MQTT JSON) ---
+V2_GANG_FIELDS = {1: "bt", 2: "bt2", 3: "bt3", 4: "bt4"}
+V2_GANG_ATTRS = {1: 11, 2: 12, 3: 13, 4: 14}
+
+def v2_gang_field(gang: int) -> str:
+    return V2_GANG_FIELDS.get(gang, "bt")
+
+def v2_gang_attr(gang: int) -> int:
+    return V2_GANG_ATTRS.get(gang, 11)
+
 # --- device classes ---
 DOMAIN_LIGHT = "light"
 DOMAIN_SWITCH = "switch"

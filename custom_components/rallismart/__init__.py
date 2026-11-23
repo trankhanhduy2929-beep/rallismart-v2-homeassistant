@@ -1,4 +1,4 @@
-"""RalliSmart V2 custom integration (Rang Dong HC v1 over SignalR)."""
+"""RalliSmart V2 custom integration (Rang Dong HC v1/v2)."""
 from __future__ import annotations
 
 import logging
@@ -29,8 +29,9 @@ from .const import (
     LICENSE_HEARTBEAT_HOURS,
 )
 from .coordinator import RalliSmartCoordinator
-from .hub import RangDongHub, RangDongHubError
+from .hub import RangDongHub, RangDongHubError, is_v2
 from .license import LicenseError, LicenseManager, async_get_install_id
+from .mqtt import RangDongMqttError, RangDongMqttHub
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -152,6 +153,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     homes = _select_homes(hass, entry, dormitories)
     hub = RangDongHub(session, api.base_url, lambda: api.token or "")
+    mqtt = RangDongMqttHub(api, entry.entry_id)
     coordinators: dict[str, RalliSmartCoordinator] = {}
     for home in homes:
         coordinator = RalliSmartCoordinator(
@@ -163,20 +165,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 (home.get("name") or home["id"]) if len(homes) > 1 else ""
             ),
             config_entry=entry,
+            mqtt=mqtt,
         )
         coordinator.licensed = True
         hub.add_listener(coordinator.handle_hub_message)
+        mqtt.add_listener(coordinator.handle_mqtt_message)
         coordinators[home["id"]] = coordinator
 
     for coordinator in coordinators.values():
         await coordinator.async_config_entry_first_refresh()
 
-    if any(coordinator.hubs for coordinator in coordinators.values()):
+    all_hcs = [
+        hc
+        for coordinator in coordinators.values()
+        for hc in coordinator.hubs.values()
+    ]
+    v1_hcs = [hc for hc in all_hcs if not is_v2(hc.get("version"))]
+    v2_hcs = [hc for hc in all_hcs if is_v2(hc.get("version"))]
+    if v1_hcs:
         try:
             await hub.connect()
         except RangDongHubError as err:
             raise ConfigEntryNotReady("cannot connect to HC hub") from err
-    else:
+    if v2_hcs:
+        try:
+            await mqtt.connect(v2_hcs)
+        except (RangDongMqttError, RalliSmartApiError) as err:
+            raise ConfigEntryNotReady("cannot connect to HC MQTT") from err
+    if not all_hcs:
         _LOGGER.info(
             "No Home Controller in %s; using Tuya cloud for WiFi devices",
             ", ".join(home.get("name") or home["id"] for home in homes),
@@ -241,6 +257,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "api": api,
         "hub": hub,
+        "mqtt": mqtt,
         "coordinators": coordinators,
         # Backwards-compatible alias for single-home callers/tests.
         "coordinator": first_coordinator,
@@ -262,4 +279,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await coordinator.async_shutdown()
             if data.get("hub"):
                 await data["hub"].close()
+            if data.get("mqtt"):
+                await data["mqtt"].close()
     return unload_ok

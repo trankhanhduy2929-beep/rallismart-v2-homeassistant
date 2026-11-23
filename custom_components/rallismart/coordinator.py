@@ -14,6 +14,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import RalliSmartApi, RalliSmartApiError, RalliSmartAuthError
 from .const import DOMAIN, SCAN_INTERVAL_SEC
 from .control import (
+    ATTR_CCT,
+    ATTR_DIM,
+    ATTR_HUE,
+    ATTR_LUMINANCE,
+    ATTR_ON_OFF,
+    ATTR_SATURATION,
     ATTR_STATUS,
     build_device_message,
     cover_properties,
@@ -22,8 +28,11 @@ from .control import (
     power_properties,
     scene_message,
     tuya_switch_codes,
+    v2_gang_attr,
+    v2_gang_field,
 )
-from .hub import RangDongHub, RangDongHubError
+from .hub import RangDongHub, RangDongHubError, is_v2
+from .mqtt import RangDongMqttError, RangDongMqttHub
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +63,7 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         dormitory_id: str,
         dormitory_name: str = "",
         config_entry: ConfigEntry | None = None,
+        mqtt: RangDongMqttHub | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -64,6 +74,7 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         )
         self.api = api
         self.hub = hub
+        self.mqtt = mqtt
         self.dormitory_id = dormitory_id
         self.dormitory_name = dormitory_name
         # The first refresh (and the one after a SignalR reconnect) fills state
@@ -73,6 +84,8 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         add_reconnect_listener = getattr(hub, "add_reconnect_listener", None)
         if add_reconnect_listener is not None:
             add_reconnect_listener(self._handle_reconnect)
+        if mqtt is not None:
+            mqtt.add_reconnect_listener(self._handle_reconnect)
         self.hubs: dict[str, dict[str, Any]] = {}
         self.rooms: dict[str, dict[str, Any]] = {}
         self.scenes: list[dict[str, Any]] = []
@@ -83,6 +96,7 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self.panel_size: dict[str, int] = {}
         self.panel_name: dict[str, str] = {}
         self.panel_device: dict[str, dict[str, Any]] = {}
+        self.panel_member: dict[str, dict[int, str]] = {}
         # Set False by the license heartbeat to disable entities.
         self.licensed = True
 
@@ -94,11 +108,18 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         return hubs, devices, rooms, scenes
 
     async def _async_update_data(self) -> dict[str, dict[str, Any]]:
-        if self.hubs:
+        if any(not is_v2(hc.get("version")) for hc in self.hubs.values()):
             try:
                 await self.hub.ensure_connected()
             except Exception:
                 _LOGGER.debug("hub reconnect failed", exc_info=True)
+        if self.mqtt is not None and any(
+            is_v2(hc.get("version")) for hc in self.hubs.values()
+        ):
+            try:
+                await self.mqtt.ensure_connected()
+            except Exception:
+                _LOGGER.debug("v2 MQTT reconnect failed", exc_info=True)
         try:
             hubs, devices, rooms, scenes = await self._fetch_inventory()
         except RalliSmartAuthError:
@@ -135,6 +156,14 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         if self._needs_state_sync:
             await self._sync_cloud_states(inventory)
         await self._refresh_tuya_states(inventory)
+        if self.mqtt is not None:
+            for hc in self.hubs.values():
+                if not is_v2(hc.get("version")):
+                    continue
+                try:
+                    await self.mqtt.request_all_status(hc)
+                except Exception:
+                    _LOGGER.debug("v2 status poll failed", exc_info=True)
         return inventory
 
     @callback
@@ -161,12 +190,37 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             entry = inventory.get(uid)
             if not entry or not entry.get("hc"):
                 continue
+            if (
+                is_v2(entry["hc"].get("version"))
+                and self.panel_of.get(uid, uid) != uid
+            ):
+                # Panel child attribute rows are stale in the cloud; the
+                # parent's bt/bt2/bt3/bt4 fields are authoritative.
+                continue
             try:
                 attr_id = int(row["deviceAttributeId"])
             except (KeyError, TypeError, ValueError):
                 continue
             entry["state"][attr_id] = row.get("value")
+        self._apply_v2_panel_attributes(inventory)
         self._needs_state_sync = False
+
+    def _apply_v2_panel_attributes(
+        self, inventory: dict[str, dict[str, Any]]
+    ) -> None:
+        for pid, members in self.panel_member.items():
+            parent = inventory.get(pid)
+            if not parent or len(members) < 2:
+                continue
+            hc = parent.get("hc")
+            if not hc or not is_v2(hc.get("version")):
+                continue
+            for gang, member_uid in members.items():
+                value = parent["state"].get(v2_gang_attr(gang))
+                member = inventory.get(member_uid)
+                if value is None or not member:
+                    continue
+                member["state"][ATTR_STATUS] = value
 
     async def _refresh_tuya_states(self, inventory: dict[str, dict[str, Any]]) -> None:
         """Poll DP values for Tuya WiFi switches (no push channel without HC)."""
@@ -206,6 +260,7 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         size: dict[str, int] = {}
         name: dict[str, str] = {}
         pdev: dict[str, dict[str, Any]] = {}
+        member_map: dict[str, dict[int, str]] = {}
         for pid, members in groups.items():
             parent = by_id.get(pid, members[0])
             members_sorted = sorted(
@@ -214,16 +269,19 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             size[pid] = len(members_sorted)
             name[pid] = parent.get("name") or members_sorted[0].get("name") or pid
             pdev[pid] = parent
+            member_map[pid] = {}
             for index, member in enumerate(members_sorted, start=1):
                 uid = str(member["id"])
                 panel_of[uid] = pid
                 gang[uid] = index
+                member_map[pid][index] = uid
 
         self.panel_of = panel_of
         self.panel_gang = gang
         self.panel_size = size
         self.panel_name = name
         self.panel_device = pdev
+        self.panel_member = member_map
 
     # ---------- panel helpers ----------
 
@@ -249,6 +307,89 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             self._apply_device_response(data)
         elif entity == "Command":
             self._apply_command(data)
+
+    @callback
+    def handle_mqtt_message(self, topic: str, message: dict[str, Any]) -> None:
+        if message.get("cmd") == "deviceUpdate":
+            self._apply_v2_device_update(message.get("data"))
+
+    def _apply_v2_device_update(self, data: Any) -> None:
+        if not isinstance(data, dict) or not self.data:
+            return
+        devices = data.get("device")
+        if not isinstance(devices, list):
+            return
+        changed = False
+        for item in devices:
+            if not isinstance(item, dict):
+                continue
+            uid = str(item.get("id") or "")
+            fields = item.get("data")
+            entry = self.data.get(uid)
+            if not uid or not entry or not isinstance(fields, dict):
+                continue
+            pid, _, gang, size = self.group(uid)
+            if size > 1 and pid in self.panel_member:
+                if uid == pid:
+                    for index, member_uid in self.panel_member[pid].items():
+                        field = v2_gang_field(index)
+                        if field not in fields:
+                            continue
+                        value = self._on_value(fields[field])
+                        member = self.data.get(member_uid)
+                        if member is not None:
+                            changed |= self._set_state(member, ATTR_STATUS, value)
+                        changed |= self._set_state(entry, v2_gang_attr(index), value)
+                    continue
+                field = v2_gang_field(gang)
+                if field in fields:
+                    changed |= self._set_state(
+                        entry, ATTR_STATUS, self._on_value(fields[field])
+                    )
+                elif "onoff" in fields:
+                    changed |= self._set_state(
+                        entry, ATTR_STATUS, self._on_value(fields["onoff"])
+                    )
+                continue
+            if "bt" in fields:
+                changed |= self._set_state(
+                    entry, ATTR_STATUS, self._on_value(fields["bt"])
+                )
+            elif "onoff" in fields:
+                changed |= self._set_state(
+                    entry, ATTR_STATUS, self._on_value(fields["onoff"])
+                )
+            if "stt" in fields:
+                changed |= self._set_state(
+                    entry, ATTR_ON_OFF, self._on_value(fields["stt"])
+                )
+            for field, attr_id in (
+                ("dim", ATTR_DIM),
+                ("cct", ATTR_CCT),
+                ("h", ATTR_HUE),
+                ("s", ATTR_SATURATION),
+                ("l", ATTR_LUMINANCE),
+            ):
+                if field in fields:
+                    changed |= self._set_state(entry, attr_id, fields[field])
+        if changed:
+            self._push_seq += 1
+            self.async_set_updated_data(self.data)
+
+    @staticmethod
+    def _on_value(value: Any) -> int:
+        try:
+            return 1 if int(value) else 0
+        except (TypeError, ValueError):
+            return 1 if value else 0
+
+    def _set_state(
+        self, entry: dict[str, Any], attr_id: int, value: Any
+    ) -> bool:
+        if entry["state"].get(attr_id) == value:
+            return False
+        entry["state"][attr_id] = value
+        return True
 
     def _apply_attribute_values(self, entries: Any) -> None:
         if not isinstance(entries, list) or not self.data:
@@ -330,6 +471,9 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         hc = entry.get("hc")
         if not hc:
             raise RalliSmartApiError("device is not connected to a home controller")
+        if is_v2(hc.get("version")):
+            await self._send_v2_properties(entry, hc, properties)
+            return
         message = build_device_message(
             entry["device"], hc.get("macAddress"), properties
         )
@@ -343,7 +487,87 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             entry["state"][int(prop["ID"])] = prop.get("VALUE")
         self.async_set_updated_data(self.data)
 
+    async def _send_v2_properties(
+        self,
+        entry: dict[str, Any],
+        hc: dict[str, Any],
+        properties: list[dict[str, Any]],
+    ) -> None:
+        if self.mqtt is None:
+            raise RalliSmartApiError("HC v2 MQTT transport is not configured")
+        fields: dict[str, Any] = {}
+        mapping = {
+            ATTR_STATUS: "onoff",
+            ATTR_DIM: "dim",
+            ATTR_CCT: "cct",
+            ATTR_HUE: "h",
+            ATTR_SATURATION: "s",
+            ATTR_LUMINANCE: "l",
+        }
+        for prop in properties:
+            try:
+                attr_id = int(prop["ID"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            field = mapping.get(attr_id)
+            if field is None:
+                raise RalliSmartApiError(
+                    f"HC v2 does not support attribute {attr_id} yet"
+                )
+            value = prop.get("VALUE")
+            fields[field] = int(value) if attr_id == ATTR_STATUS else value
+        if not fields:
+            return
+        try:
+            await self.mqtt.send_command(
+                hc,
+                {
+                    "cmd": "controlDev",
+                    "data": {"id": str(entry["device"]["id"]), "data": fields},
+                },
+            )
+        except RangDongMqttError as err:
+            raise RalliSmartApiError(str(err)) from err
+        for prop in properties:
+            entry["state"][int(prop["ID"])] = prop.get("VALUE")
+        self._push_seq += 1
+        self.async_set_updated_data(self.data)
+
     async def async_set_power(self, uid: str, on: bool) -> None:
+        if not self.licensed:
+            raise RalliSmartApiError("License inactive; update License Key in Options")
+        entry = (self.data or {}).get(uid)
+        if not entry:
+            raise RalliSmartApiError("unknown device")
+        hc = entry.get("hc")
+        if not hc:
+            raise RalliSmartApiError("device is not connected to a home controller")
+        if is_v2(hc.get("version")):
+            if self.mqtt is None:
+                raise RalliSmartApiError("HC v2 MQTT transport is not configured")
+            pid, _, gang, size = self.group(uid)
+            try:
+                await self.mqtt.set_power(
+                    hc,
+                    str(entry["device"]["id"]),
+                    on,
+                    panel_id=pid,
+                    gang=gang,
+                    panel_size=size,
+                )
+            except RangDongMqttError as err:
+                raise RalliSmartApiError(str(err)) from err
+            changed = self._set_state(entry, ATTR_STATUS, 1 if on else 0)
+            if size > 1:
+                parent = self.data.get(pid)
+                if parent is not None:
+                    changed |= self._set_state(
+                        parent, v2_gang_attr(gang), 1 if on else 0
+                    )
+            if changed:
+                self._push_seq += 1
+                self.async_set_updated_data(self.data)
+            return
         await self.async_send_properties(uid, power_properties(on))
 
     async def async_set_tuya_switch(self, uid: str, code: str, on: bool) -> None:
@@ -383,19 +607,30 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
 
     # ---------- scenes ----------
 
-    def _hub_mac_for_scene(self, scene: dict[str, Any]) -> str | None:
+    def _hub_for_scene(self, scene: dict[str, Any]) -> dict[str, Any] | None:
         room = self.rooms.get(scene.get("roomId"))
         hc_id = room.get("homeControllerId") if room else None
         hc = self.hubs.get(hc_id) if hc_id else None
         if hc is None and self.hubs:
             hc = next(iter(self.hubs.values()))
-        return hc.get("macAddress") if hc else None
+        return hc
 
     async def async_activate_scene(self, scene_id: str) -> None:
         scene = next((s for s in self.scenes if str(s.get("id")) == str(scene_id)), None)
         if scene is None:
             raise RalliSmartApiError("unknown scene")
-        mac = self._hub_mac_for_scene(scene)
+        hc = self._hub_for_scene(scene)
+        if not hc:
+            raise RalliSmartApiError("scene has no home controller")
+        if is_v2(hc.get("version")):
+            if self.mqtt is None:
+                raise RalliSmartApiError("HC v2 MQTT transport is not configured")
+            try:
+                await self.mqtt.control_scene(hc, str(scene["id"]))
+            except RangDongMqttError as err:
+                raise RalliSmartApiError(str(err)) from err
+            return
+        mac = hc.get("macAddress")
         if not mac:
             raise RalliSmartApiError("scene has no home controller")
         await self._send(scene_message(scene, mac))
