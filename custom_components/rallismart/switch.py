@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .control import is_switch
+from .control import is_switch, tuya_switch_codes
 from .coordinator import RalliSmartCoordinator
 from .entity import RalliSmartEntity
 
@@ -27,11 +27,16 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: RalliSmartCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    entities = [
-        RalliSmartSwitch(coordinator, uid)
-        for uid, item in (coordinator.data or {}).items()
-        if is_switch(item["device"])
-    ]
+    entities: list[SwitchEntity] = []
+    for uid, item in (coordinator.data or {}).items():
+        codes = tuya_switch_codes(item["device"]) if not item.get("hc") else []
+        if codes:
+            for gang, code in enumerate(codes, start=1):
+                entities.append(
+                    RalliSmartTuyaSwitch(coordinator, uid, code, gang, len(codes))
+                )
+        elif is_switch(item["device"]):
+            entities.append(RalliSmartSwitch(coordinator, uid))
     async_add_entities(entities)
 
 
@@ -48,3 +53,30 @@ class RalliSmartSwitch(RalliSmartEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.async_set_power(self._uid, False)
+
+
+class RalliSmartTuyaSwitch(RalliSmartEntity, SwitchEntity):
+    """One gang of a Tuya WiFi wall switch (no Home Controller)."""
+
+    def __init__(
+        self,
+        coordinator: RalliSmartCoordinator,
+        uid: str,
+        code: str,
+        gang: int,
+        gangs: int,
+    ) -> None:
+        super().__init__(coordinator, uid)
+        self._code = code
+        self._attr_unique_id = f"rallismart_{uid}_{code}"
+        self._attr_name = None if gangs <= 1 else f"Gang {gang}"
+
+    @property
+    def is_on(self) -> bool | None:
+        return self.coordinator.is_tuya_on(self._uid, self._code)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_tuya_switch(self._uid, self._code, True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_tuya_switch(self._uid, self._code, False)

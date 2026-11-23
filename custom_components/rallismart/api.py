@@ -20,6 +20,7 @@ ROUTE_ACCOUNT = "rpc/iot-ebe/account"
 ROUTE_SYNC = "rpc/iot-ebe/sync"
 ROUTE_MQTT = "rpc/iot-ebe/mqtt"
 ROUTE_CAMERA = "rpc/iot-ebe/camera-attribute"
+ROUTE_TUYA_CORE = "rpc/iot-ebe/tuya/core"
 
 _ACTION_RE = re.compile(r"[A-Z]")
 _SAFE_ERROR = re.compile(r"(/rpc/iot-ebe/[A-Za-z0-9/_-]+)")
@@ -170,7 +171,7 @@ class RalliSmartApi:
         ]
 
     async def list_devices(self, dormitory_id: str) -> list[dict[str, Any]]:
-        """Only devices that belong to one of this home's HC boxes."""
+        """Devices of this home: HC children plus Tuya WiFi devices."""
         data = await self._post(
             ROUTE_SYNC,
             "listDevice",
@@ -186,7 +187,7 @@ class RalliSmartApi:
             d
             for d in data
             if d.get("dormitoryId") == dormitory_id
-            and d.get("homeControllerId") in hub_ids
+            and (d.get("homeControllerId") in hub_ids or d.get("tuyaId"))
             and not d.get("deletedAt")
         ]
 
@@ -244,6 +245,36 @@ class RalliSmartApi:
         if not url.lower().startswith(("rtsp://", "http://", "https://")):
             return None
         return url
+
+    # ---------- Tuya WiFi devices (cloud proxy) ----------
+
+    async def tuya_get_device_status(self, tuya_id: str) -> dict[str, Any]:
+        """Return DP values (``switch_1``...) for one Tuya WiFi device."""
+        data = await self._post(
+            ROUTE_TUYA_CORE,
+            "getDeviceStatus",
+            {"param": {"device_id": tuya_id}},
+        )
+        result = data.get("result") if isinstance(data, dict) else data
+        status: dict[str, Any] = {}
+        if isinstance(result, list):
+            for item in result:
+                if isinstance(item, dict) and item.get("code"):
+                    status[str(item["code"])] = item.get("value")
+        elif isinstance(result, dict):
+            status.update(result)
+        return status
+
+    async def tuya_send_commands(
+        self, tuya_id: str, commands: list[dict[str, Any]]
+    ) -> None:
+        data = await self._post(
+            ROUTE_TUYA_CORE,
+            "sendCommand",
+            {"param": {"device_id": tuya_id}, "body": {"commands": commands}},
+        )
+        if isinstance(data, dict) and data.get("success") is False:
+            raise RalliSmartApiError(f"Tuya command rejected ({data.get('code')})")
 
     # ---------- MQTT (alternate transport, unused by HC v1 path) ----------
 

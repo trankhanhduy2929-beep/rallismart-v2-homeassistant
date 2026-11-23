@@ -1,6 +1,7 @@
 """Coordinator: inventory via REST, live state via the HC SignalR hub."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import timedelta
@@ -17,8 +18,10 @@ from .control import (
     build_device_message,
     cover_properties,
     device_flash_message,
+    is_tuya,
     power_properties,
     scene_message,
+    tuya_switch_codes,
 )
 from .hub import RangDongHub, RangDongHubError
 
@@ -70,10 +73,11 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         return hubs, devices, rooms, scenes
 
     async def _async_update_data(self) -> dict[str, dict[str, Any]]:
-        try:
-            await self.hub.ensure_connected()
-        except Exception:
-            _LOGGER.debug("hub reconnect failed", exc_info=True)
+        if self.hubs:
+            try:
+                await self.hub.ensure_connected()
+            except Exception:
+                _LOGGER.debug("hub reconnect failed", exc_info=True)
         try:
             hubs, devices, rooms, scenes = await self._fetch_inventory()
         except RalliSmartAuthError:
@@ -91,14 +95,45 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         inventory: dict[str, dict[str, Any]] = {}
         for dev in devices:
             hc = self.hubs.get(dev.get("homeControllerId"))
-            if not hc:
+            # Tuya WiFi devices have no Home Controller; they are driven via
+            # the cloud proxy and must not be dropped with unsupported HCs.
+            if not hc and not tuya_switch_codes(dev):
                 continue
             uid = str(dev["id"])
             previous = (self.data or {}).get(uid, {}).get("state", {})
-            inventory[uid] = {"device": dev, "hc": hc, "state": dict(previous)}
+            inventory[uid] = {
+                "device": dev,
+                "hc": hc,
+                "state": dict(previous),
+                "tuya_state": dict(
+                    (self.data or {}).get(uid, {}).get("tuya_state", {})
+                ),
+            }
 
         self._build_panels([d for d in devices])
+        await self._refresh_tuya_states(inventory)
         return inventory
+
+    async def _refresh_tuya_states(self, inventory: dict[str, dict[str, Any]]) -> None:
+        """Poll DP values for Tuya WiFi switches (no push channel without HC)."""
+        tasks = [
+            self._load_tuya_state(entry, str(entry["device"]["tuyaId"]))
+            for entry in inventory.values()
+            if tuya_switch_codes(entry["device"])
+        ]
+        if tasks:
+            await asyncio.gather(*tasks)
+
+    async def _load_tuya_state(
+        self, entry: dict[str, Any], tuya_id: str
+    ) -> None:
+        try:
+            status = await self.api.tuya_get_device_status(tuya_id)
+        except Exception:
+            _LOGGER.debug("Tuya status failed for %s", tuya_id, exc_info=True)
+            return
+        if status:
+            entry["tuya_state"] = status
 
     def _build_panels(self, devices: list[dict[str, Any]]) -> None:
         """Group multi-gang panels: parent device + its children."""
@@ -207,6 +242,14 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         value = self.state_value(uid, ATTR_STATUS)
         return None if value is None else bool(value)
 
+    def tuya_value(self, uid: str, code: str) -> Any:
+        entry = (self.data or {}).get(uid)
+        return (entry.get("tuya_state") or {}).get(code) if entry else None
+
+    def is_tuya_on(self, uid: str, code: str) -> bool | None:
+        value = self.tuya_value(uid, code)
+        return None if value is None else bool(value)
+
     # ---------- control ----------
 
     async def async_send_properties(self, uid: str, properties: list[dict[str, Any]]) -> None:
@@ -215,8 +258,11 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         entry = (self.data or {}).get(uid)
         if not entry:
             raise RalliSmartApiError("unknown device")
+        hc = entry.get("hc")
+        if not hc:
+            raise RalliSmartApiError("device is not connected to a home controller")
         message = build_device_message(
-            entry["device"], entry["hc"].get("macAddress"), properties
+            entry["device"], hc.get("macAddress"), properties
         )
         try:
             await self.hub.send_command(self.dormitory_id, message)
@@ -230,6 +276,18 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
 
     async def async_set_power(self, uid: str, on: bool) -> None:
         await self.async_send_properties(uid, power_properties(on))
+
+    async def async_set_tuya_switch(self, uid: str, code: str, on: bool) -> None:
+        if not self.licensed:
+            raise RalliSmartApiError("License inactive; update License Key in Options")
+        entry = (self.data or {}).get(uid)
+        if not entry or not is_tuya(entry["device"]):
+            raise RalliSmartApiError("unknown Tuya device")
+        await self.api.tuya_send_commands(
+            str(entry["device"]["tuyaId"]), [{"code": code, "value": on}]
+        )
+        entry.setdefault("tuya_state", {})[code] = on
+        self.async_set_updated_data(self.data)
 
     async def async_cover(self, uid: str, action: str) -> None:
         await self.async_send_properties(uid, cover_properties(action))

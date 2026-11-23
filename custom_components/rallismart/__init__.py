@@ -114,12 +114,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator.licensed = True
     hub.add_listener(coordinator.handle_hub_message)
 
-    try:
-        await hub.connect()
-    except RangDongHubError as err:
-        raise ConfigEntryNotReady("cannot connect to HC hub") from err
-
     await coordinator.async_config_entry_first_refresh()
+
+    if coordinator.hubs:
+        try:
+            await hub.connect()
+        except RangDongHubError as err:
+            raise ConfigEntryNotReady("cannot connect to HC hub") from err
+    else:
+        _LOGGER.info(
+            "No Home Controller in dormitory %s; using Tuya cloud for WiFi devices",
+            dormitory_id,
+        )
 
     cancel = None
     cancel_expiry = None

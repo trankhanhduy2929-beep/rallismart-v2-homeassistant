@@ -12,7 +12,7 @@ Website, database Neon và webhook PayOS đã được triển khai. Đăng ký 
 
 - Home Assistant: đã kiểm thử các lớp tích hợp trên phiên bản 2026.2.3; chưa xác nhận tương thích với các bản cũ hơn.
 - Tài khoản app RalliSmart V2 của Rạng Đông.
-- HC01 dùng firmware v1; đã xác minh đường điều khiển SignalR trên firmware 1.2.45. Không hỗ trợ đường MQTT v2 trong bản này.
+- HC01 dùng firmware v1: đã xác minh SignalR trên firmware 1.2.45. Công tắc WiFi Tuya (không có HC) được hỗ trợ qua cloud proxy; chưa hỗ trợ HC firmware v2/MQTT v2.
 - Cài đặt mới cần License Key. Bản đã cấu hình trước đây chưa có key tiếp tục hoạt động để không làm gián đoạn thiết bị.
 
 ## Cài bằng HACS
@@ -25,7 +25,7 @@ Website, database Neon và webhook PayOS đã được triển khai. Đăng ký 
 
 ## Cài thủ công
 
-1. Giải nén `rallismart-custom-0.5.4.zip`.
+1. Giải nén `rallismart-custom-0.5.5.zip`.
 2. Copy thư mục `custom_components/rallismart` vào `/config/custom_components/rallismart`.
 3. Khởi động lại Home Assistant, rồi thêm integration như trên.
 
@@ -67,6 +67,7 @@ Không chia sẻ key, thư mục `.storage` hay bản sao cấu hình HA. Cơ ch
 ## Chức năng và giới hạn
 
 - Công tắc nhiều nút: từng gang là entity riêng, gom vào thiết bị panel; giữ riêng địa chỉ điều khiển từng gang.
+- Công tắc WiFi Tuya không có HC: mỗi gang là entity riêng, trạng thái cập nhật mỗi 30 giây và điều khiển qua cloud proxy.
 - Đèn: on/off; DIM/CCT/RGB có mapping hiện có nhưng chưa kiểm chứng đủ mọi model.
 - Rèm/cửa cuốn: giữ chức năng hiện có; chiều và tính năng chưa được kiểm chứng đầy đủ, cần quan sát trực tiếp khi dùng lần đầu.
 - Sensor/binary sensor: chỉ hiện cho model đã có mapping, không tạo sensor giả cho nhà không có thiết bị đó.

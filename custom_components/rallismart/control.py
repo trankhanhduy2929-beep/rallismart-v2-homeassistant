@@ -78,6 +78,8 @@ _SENSOR_TYPES = {
     39005: ("oxygen", "sensor"),
 }
 _CAMERA_TYPES = frozenset({61001, 61002, 61003})
+# Tuya WiFi wall switches (no Home Controller): one DP per gang.
+_TUYA_SWITCH_GANGS = {43001: 1, 43002: 2, 43003: 3, 43004: 4}
 
 
 def _type_id(device: dict[str, Any]) -> int:
@@ -120,6 +122,17 @@ def is_switch(device: dict[str, Any]) -> bool:
     if is_light(device) or is_cover(device) or tid in _SENSOR_TYPES or tid in _CAMERA_TYPES:
         return False
     return any(lo <= tid <= hi for lo, hi in _SWITCH_RANGES)
+
+def is_tuya(device: dict[str, Any]) -> bool:
+    """Tuya WiFi device (no Home Controller; controlled via the cloud proxy)."""
+    return bool(device.get("tuyaId"))
+
+def tuya_switch_codes(device: dict[str, Any]) -> list[str]:
+    """Tuya DP codes for a WiFi wall switch, e.g. ``switch_1``..``switch_4``."""
+    if not is_tuya(device):
+        return []
+    gangs = _TUYA_SWITCH_GANGS.get(_type_id(device))
+    return [f"switch_{index}" for index in range(1, gangs + 1)] if gangs else []
 
 
 def sensor_kind(device: dict[str, Any]) -> tuple[str, str] | None:
