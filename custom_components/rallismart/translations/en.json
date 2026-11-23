@@ -3,18 +3,11 @@
     "step": {
       "user": {
         "title": "RalliSmart V2",
-        "description": "Sign in with your RalliSmart app account.",
+        "description": "Sign in with your RalliSmart app account. All homes on the account are added automatically; one integration entry manages every home.",
         "data": {
           "username": "Username or email",
           "password": "Password",
           "device_name": "Device name sent to server"
-        }
-      },
-      "home": {
-        "title": "Select home",
-        "description": "Choose which home this integration should control.",
-        "data": {
-          "dormitory_id": "Home"
         }
       },
       "license": {

@@ -1,12 +1,16 @@
 {
   "domain": "rallismart",
   "name": "RalliSmart V2",
-  "codeowners": ["@trankhanhduy2929-beep"],
+  "codeowners": [
+    "@trankhanhduy2929-beep"
+  ],
   "config_flow": true,
-  "dependencies": ["stream"],
+  "dependencies": [
+    "stream"
+  ],
   "documentation": "https://github.com/trankhanhduy2929-beep/rallismart-v2-homeassistant",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/trankhanhduy2929-beep/rallismart-v2-homeassistant/issues",
   "requirements": [],
-  "version": "0.5.6"
+  "version": "0.6.0"
 }

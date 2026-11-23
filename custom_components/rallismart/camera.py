@@ -16,9 +16,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
 from .control import is_camera
-from .coordinator import RalliSmartCoordinator
+from .coordinator import RalliSmartCoordinator, coordinators_for
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,18 +61,19 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: RalliSmartCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    try:
-        rows = await coordinator.api.camera_attributes(coordinator.dormitory_id)
-    except Exception:
-        _LOGGER.debug("camera attributes unavailable", exc_info=True)
-        rows = []
-    url_map = build_url_map(rows)
-    entities = [
-        RalliSmartCamera(coordinator, uid, url_map[uid])
-        for uid, item in (coordinator.data or {}).items()
-        if is_camera(item["device"]) and uid in url_map
-    ]
+    entities = []
+    for coordinator in coordinators_for(hass, entry):
+        try:
+            rows = await coordinator.api.camera_attributes(coordinator.dormitory_id)
+        except Exception:
+            _LOGGER.debug("camera attributes unavailable", exc_info=True)
+            rows = []
+        url_map = build_url_map(rows)
+        entities.extend(
+            RalliSmartCamera(coordinator, uid, url_map[uid])
+            for uid, item in (coordinator.data or {}).items()
+            if is_camera(item["device"]) and uid in url_map
+        )
     async_add_entities(entities)
 
 

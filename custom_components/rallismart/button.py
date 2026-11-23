@@ -13,9 +13,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
 from .control import is_cover, is_light, is_switch, is_tuya
-from .coordinator import RalliSmartCoordinator
+from .coordinator import RalliSmartCoordinator, coordinators_for
 from .entity import RalliSmartEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,9 +34,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: RalliSmartCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     entities = [
         RalliSmartIdentifyButton(coordinator, uid)
+        for coordinator in coordinators_for(hass, entry)
         for uid, item in (coordinator.data or {}).items()
         if _controllable(item)
     ]

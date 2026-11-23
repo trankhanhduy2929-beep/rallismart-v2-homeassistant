@@ -21,7 +21,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
 from .control import (
     ATTR_CCT,
     ATTR_DIM,
@@ -36,7 +35,7 @@ from .control import (
     to_255,
     to_kelvin,
 )
-from .coordinator import RalliSmartCoordinator
+from .coordinator import RalliSmartCoordinator, coordinators_for
 from .entity import RalliSmartEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,9 +50,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: RalliSmartCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     entities = [
         RalliSmartLight(coordinator, uid)
+        for coordinator in coordinators_for(hass, entry)
         for uid, item in (coordinator.data or {}).items()
         if is_light(item["device"])
     ]

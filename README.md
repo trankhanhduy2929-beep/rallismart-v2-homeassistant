@@ -21,11 +21,11 @@ Website, database Neon và webhook PayOS đã được triển khai. Đăng ký 
 2. Thêm `https://github.com/trankhanhduy2929-beep/rallismart-v2-homeassistant`, loại **Integration**.
 3. Tải **RalliSmart V2**, sau đó khởi động lại Home Assistant.
 4. Vào Settings → Devices & Services → Add Integration → RalliSmart V2.
-5. Nhập tài khoản RalliSmart, chọn nhà, nhập License Key. Địa chỉ máy chủ bản quyền được tích hợp sẵn — không cần nhập; bấm link trong form để mở trang kích hoạt lấy key.
+5. Nhập tài khoản RalliSmart và License Key. Tất cả nhà thuộc tài khoản tự động được thêm vào cùng một tích hợp; không cần thêm lại cho từng nhà. Địa chỉ máy chủ bản quyền được tích hợp sẵn — không cần nhập; bấm link trong form để mở trang kích hoạt lấy key.
 
 ## Cài thủ công
 
-1. Giải nén `rallismart-custom-0.5.6.zip`.
+1. Giải nén `rallismart-custom-0.6.0.zip`.
 2. Copy thư mục `custom_components/rallismart` vào `/config/custom_components/rallismart`.
 3. Khởi động lại Home Assistant, rồi thêm integration như trên.
 
@@ -37,6 +37,8 @@ Zip chỉ chứa thành phần cần cài và hướng dẫn, không chứa serv
 2. Cập nhật bằng HACS hoặc ghi đè các file integration, rồi restart HA.
 3. Không xóa integration, thiết bị, entity hoặc automation đang có.
 4. Tài khoản, nhà, entity unique ID và các nút công tắc giữ nguyên.
+   - Entry cũ chỉ có một nhà sẽ tự mở rộng ra mọi nhà của tài khoản.
+   - Nếu trước đây đã thêm nhiều entry cho cùng tài khoản, mỗi entry tiếp tục phụ trách nhà của nó (không tạo entity trùng). Có thể xóa các entry thừa và giữ lại một entry duy nhất.
 5. Vào Settings → Devices & Services → RalliSmart V2 → **Configure / Cấu hình** để nhập hoặc thay License Key. Việc lưu key sẽ nạp lại entry đó.
 
 Nếu entry cũ chưa có key, thông báo tương thích sẽ hiện link website; thiết bị không bị chặn chỉ vì nâng cấp. Sau khi nhập key, entry chuyển sang kiểm tra license. Cài đặt mới luôn yêu cầu key hợp lệ.

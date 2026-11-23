@@ -22,14 +22,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
 from .control import (
     ATTR_HUMIDITY,
     ATTR_PM25,
     ATTR_TEMP,
     sensor_kind,
 )
-from .coordinator import RalliSmartCoordinator
+from .coordinator import RalliSmartCoordinator, coordinators_for
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,12 +47,12 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: RalliSmartCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     entities = []
-    for uid, item in (coordinator.data or {}).items():
-        kind = sensor_kind(item["device"])
-        if kind and kind[1] == "sensor" and kind[0] in KINDS:
-            entities.append(RalliSmartSensor(coordinator, uid, kind[0]))
+    for coordinator in coordinators_for(hass, entry):
+        for uid, item in (coordinator.data or {}).items():
+            kind = sensor_kind(item["device"])
+            if kind and kind[1] == "sensor" and kind[0] in KINDS:
+                entities.append(RalliSmartSensor(coordinator, uid, kind[0]))
     async_add_entities(entities)
 
 

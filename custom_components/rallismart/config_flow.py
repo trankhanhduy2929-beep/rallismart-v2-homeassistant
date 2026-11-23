@@ -19,6 +19,7 @@ from .api import RalliSmartApi, RalliSmartApiError, RalliSmartAuthError
 from .const import (
     ACTIVATE_URL,
     CONF_DEVICE_NAME,
+    CONF_DORMITORIES,
     CONF_DORMITORY,
     CONF_DORMITORY_NAME,
     CONF_LICENSE_KEY,
@@ -68,7 +69,6 @@ class RalliSmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
         self._dormitories: list[dict[str, Any]] = []
-        self._dormitory: dict[str, Any] | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
@@ -93,11 +93,12 @@ class RalliSmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 if not self._dormitories:
                     errors["base"] = "no_homes"
-                elif len(self._dormitories) == 1:
-                    self._dormitory = self._dormitories[0]
-                    return await self.async_step_license()
                 else:
-                    return await self.async_step_home()
+                    user_id = str(getattr(api, "user", {}).get("id") or "")
+                    if user_id:
+                        await self.async_set_unique_id(user_id)
+                        self._abort_if_unique_id_configured()
+                    return await self.async_step_license()
 
         schema = vol.Schema(
             {
@@ -107,21 +108,6 @@ class RalliSmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
-
-    async def async_step_home(self, user_input: dict[str, Any] | None = None):
-        if user_input is not None:
-            dorm = next(
-                (d for d in self._dormitories if d["id"] == user_input[CONF_DORMITORY]),
-                None,
-            )
-            if dorm is None:
-                return await self.async_step_home()
-            self._dormitory = dorm
-            return await self.async_step_license()
-
-        options = {d["id"]: d.get("name") or d["id"] for d in self._dormitories}
-        schema = vol.Schema({vol.Required(CONF_DORMITORY): vol.In(options)})
-        return self.async_show_form(step_id="home", data_schema=schema)
 
     async def async_step_license(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
@@ -136,18 +122,20 @@ class RalliSmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     def _create(self, license_input: dict[str, Any]):
-        dorm = self._dormitory or self._dormitories[0]
-        self._async_abort_entries_match({CONF_DORMITORY: dorm["id"]})
+        homes = self._dormitories
+        self._async_abort_entries_match({CONF_USERNAME: self._data[CONF_USERNAME]})
+        names = [home.get("name") or home["id"] for home in homes]
         data = {
             **self._data,
-            CONF_DORMITORY: dorm["id"],
-            CONF_DORMITORY_NAME: dorm.get("name") or dorm["id"],
+            CONF_DORMITORIES: [home["id"] for home in homes],
+            CONF_DORMITORY: homes[0]["id"],
+            CONF_DORMITORY_NAME: ", ".join(names),
             CONF_LICENSE_KEY: license_input[CONF_LICENSE_KEY].strip(),
             CONF_LICENSE_SERVER: license_input.get(CONF_LICENSE_SERVER)
             or DEFAULT_LICENSE_SERVER,
         }
         return self.async_create_entry(
-            title=dorm.get("name") or self._data[CONF_USERNAME],
+            title=", ".join(names) or self._data[CONF_USERNAME],
             data=data,
         )
 

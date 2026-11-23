@@ -10,8 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import RalliSmartCoordinator
+from .coordinator import RalliSmartCoordinator, coordinators_for
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,9 +20,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: RalliSmartCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     entities = [
         RalliSmartScene(coordinator, scene)
+        for coordinator in coordinators_for(hass, entry)
         for scene in getattr(coordinator, "scenes", [])
         if scene.get("id")
     ]

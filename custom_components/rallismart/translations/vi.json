@@ -3,18 +3,11 @@
     "step": {
       "user": {
         "title": "RalliSmart V2",
-        "description": "Đăng nhập bằng tài khoản app RalliSmart.",
+        "description": "Đăng nhập bằng tài khoản app RalliSmart. Tất cả nhà của tài khoản được thêm tự động; một tích hợp quản lý mọi nhà.",
         "data": {
           "username": "Tên đăng nhập hoặc email",
           "password": "Mật khẩu",
           "device_name": "Tên thiết bị gửi lên máy chủ"
-        }
-      },
-      "home": {
-        "title": "Chọn nhà",
-        "description": "Chọn nhà mà tích hợp này sẽ điều khiển.",
-        "data": {
-          "dormitory_id": "Nhà"
         }
       },
       "license": {

@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import RalliSmartApi, RalliSmartApiError, RalliSmartAuthError
-from .const import SCAN_INTERVAL_SEC
+from .const import DOMAIN, SCAN_INTERVAL_SEC
 from .control import (
     ATTR_STATUS,
     build_device_message,
@@ -29,6 +29,18 @@ _LOGGER = logging.getLogger(__name__)
 
 ENTITY_ATTRIBUTE_VALUE = "HC-DeviceAttributeValue"
 ENTITY_DEVICE_RESPONSE = "DeviceResponse"
+
+
+def coordinators_for(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> list[RalliSmartCoordinator]:
+    """Return every per-home coordinator of a config entry."""
+    stored = hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}
+    coordinators = stored.get("coordinators")
+    if coordinators:
+        return list(coordinators.values())
+    legacy = stored.get("coordinator")
+    return [legacy] if legacy else []
 
 
 class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):

@@ -19,6 +19,7 @@ from .api import RalliSmartApi, RalliSmartApiError, RalliSmartAuthError
 from .const import (
     ACTIVATE_URL,
     CONF_DEVICE_NAME,
+    CONF_DORMITORIES,
     CONF_DORMITORY,
     CONF_LICENSE_KEY,
     CONF_LICENSE_SERVER,
@@ -54,6 +55,47 @@ def _notify_license(hass: HomeAssistant, message: str, notification_id: str) -> 
         title="RalliSmart V2 — License / Bản quyền",
         notification_id=notification_id,
     )
+
+
+def _select_homes(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    dormitories: list[dict],
+) -> list[dict]:
+    """Homes handled by this entry.
+
+    New entries store every owned home. Legacy entries that stored a single
+    home expand to all owned homes unless the user already added several
+    entries for the same account; those keep their own home to avoid
+    duplicate entities.
+    """
+    available = {d["id"]: d for d in dormitories}
+    configured = entry.data.get(CONF_DORMITORIES)
+    if isinstance(configured, list) and configured:
+        homes = [available[did] for did in configured if did in available]
+        if not homes:
+            raise ConfigEntryNotReady("none of the configured homes are available")
+        return homes
+
+    siblings = [
+        other
+        for other in hass.config_entries.async_entries(DOMAIN)
+        if other.entry_id != entry.entry_id
+        and other.data.get(CONF_USERNAME) == entry.data.get(CONF_USERNAME)
+    ]
+    if siblings:
+        legacy = available.get(entry.data.get(CONF_DORMITORY))
+        if legacy is not None:
+            _LOGGER.warning(
+                "Multiple RalliSmart entries for this account; serving only home %s. "
+                "Remove duplicate entries to let one entry manage all homes.",
+                legacy["id"],
+            )
+            return [legacy]
+        raise ConfigEntryNotReady(
+            "duplicate RalliSmart entries; remove extras and reload"
+        )
+    return dormitories
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -108,25 +150,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not dormitories:
         raise ConfigEntryNotReady("no home available")
 
-    dormitory_id = entry.data.get(CONF_DORMITORY) or dormitories[0]["id"]
-    if dormitory_id not in {d["id"] for d in dormitories}:
-        raise ConfigEntryNotReady("home is not owned by this account")
+    homes = _select_homes(hass, entry, dormitories)
     hub = RangDongHub(session, api.base_url, lambda: api.token or "")
-    coordinator = RalliSmartCoordinator(hass, api, hub, dormitory_id, config_entry=entry)
-    coordinator.licensed = True
-    hub.add_listener(coordinator.handle_hub_message)
+    coordinators: dict[str, RalliSmartCoordinator] = {}
+    for home in homes:
+        coordinator = RalliSmartCoordinator(
+            hass, api, hub, home["id"], config_entry=entry
+        )
+        coordinator.licensed = True
+        hub.add_listener(coordinator.handle_hub_message)
+        coordinators[home["id"]] = coordinator
 
-    await coordinator.async_config_entry_first_refresh()
+    for coordinator in coordinators.values():
+        await coordinator.async_config_entry_first_refresh()
 
-    if coordinator.hubs:
+    if any(coordinator.hubs for coordinator in coordinators.values()):
         try:
             await hub.connect()
         except RangDongHubError as err:
             raise ConfigEntryNotReady("cannot connect to HC hub") from err
     else:
         _LOGGER.info(
-            "No Home Controller in dormitory %s; using Tuya cloud for WiFi devices",
-            dormitory_id,
+            "No Home Controller in %s; using Tuya cloud for WiFi devices",
+            ", ".join(home.get("name") or home["id"] for home in homes),
         )
 
     cancel = None
@@ -136,11 +182,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         @callback
         def _update_license(_now=None) -> None:
-            was = coordinator.licensed
-            coordinator.licensed = manager.valid
-            if coordinator.licensed != was:
-                coordinator.async_set_updated_data(coordinator.data)
-            if not coordinator.licensed:
+            was = all(c.licensed for c in coordinators.values())
+            for coordinator in coordinators.values():
+                if coordinator.licensed != manager.valid:
+                    coordinator.licensed = manager.valid
+                    coordinator.async_set_updated_data(coordinator.data)
+            if not manager.valid:
                 _LOGGER.warning("RalliSmart license no longer valid")
                 _notify_license(
                     hass,
@@ -156,7 +203,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if cancel_expiry is not None:
                 cancel_expiry()
                 cancel_expiry = None
-            if coordinator.licensed and manager.expires_at is not None:
+            if manager.valid and manager.expires_at is not None:
                 cancel_expiry = async_track_point_in_utc_time(
                     hass, _update_license, datetime.fromisoformat(manager.expires_at)
                 )
@@ -183,10 +230,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if cancel_expiry is not None:
                 cancel_expiry()
 
+    first_coordinator = next(iter(coordinators.values()))
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "api": api,
         "hub": hub,
-        "coordinator": coordinator,
+        "coordinators": coordinators,
+        # Backwards-compatible alias for single-home callers/tests.
+        "coordinator": first_coordinator,
         "license": manager,
         "cancel_heartbeat": cancel,
     }
@@ -201,6 +251,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if data:
             if data.get("cancel_heartbeat"):
                 data["cancel_heartbeat"]()
+            for coordinator in data.get("coordinators", {}).values():
+                await coordinator.async_shutdown()
             if data.get("hub"):
                 await data["hub"].close()
     return unload_ok
