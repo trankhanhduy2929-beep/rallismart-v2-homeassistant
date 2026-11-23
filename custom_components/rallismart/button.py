@@ -14,15 +14,20 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .control import is_cover, is_light, is_switch
+from .control import is_cover, is_light, is_switch, is_tuya
 from .coordinator import RalliSmartCoordinator
 from .entity import RalliSmartEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _controllable(device: dict[str, Any]) -> bool:
-    return is_light(device) or is_switch(device) or is_cover(device)
+def _controllable(item: dict[str, Any]) -> bool:
+    device = item["device"]
+    return (
+        bool(item.get("hc"))
+        and not is_tuya(device)
+        and (is_light(device) or is_switch(device) or is_cover(device))
+    )
 
 
 async def async_setup_entry(
@@ -34,7 +39,7 @@ async def async_setup_entry(
     entities = [
         RalliSmartIdentifyButton(coordinator, uid)
         for uid, item in (coordinator.data or {}).items()
-        if _controllable(item["device"])
+        if _controllable(item)
     ]
     async_add_entities(entities)
 

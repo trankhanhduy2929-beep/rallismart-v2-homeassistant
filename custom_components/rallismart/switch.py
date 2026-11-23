@@ -29,7 +29,7 @@ async def async_setup_entry(
     coordinator: RalliSmartCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     entities: list[SwitchEntity] = []
     for uid, item in (coordinator.data or {}).items():
-        codes = tuya_switch_codes(item["device"]) if not item.get("hc") else []
+        codes = tuya_switch_codes(item["device"])
         if codes:
             for gang, code in enumerate(codes, start=1):
                 entities.append(

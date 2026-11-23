@@ -122,7 +122,12 @@ class RalliSmartApi:
         data = await self._post(ROUTE_ACCOUNT, "login", body, auth=False)
         if not isinstance(data, dict) or not data.get("token"):
             raise RalliSmartAuthError("unexpected login response")
-        self.user = data.get("user") or {}
+        profile = data.get("user") if isinstance(data.get("user"), dict) else data
+        self.user = {
+            key: profile[key]
+            for key in ("id", "uid", "username", "displayName", "phoneNumber")
+            if profile.get(key) is not None
+        }
         self.token = data["token"]
         self.refresh_token = data.get("refreshToken")
         return data
@@ -147,13 +152,27 @@ class RalliSmartApi:
         }
 
     async def list_dormitories(self) -> list[dict[str, Any]]:
+        """Homes owned by this account.
+
+        ``sync/listDormitory`` is not scoped by the bearer token and returns
+        other accounts' homes too, so never expose rows whose ``endUserId`` is
+        not the logged-in user.
+        """
         data = await self._post(
             ROUTE_SYNC,
             "listDormitory",
             self._filter_body(),
             headers={"X-DormitoryId": "00000000-0000-0000-0000-000000000000"},
         )
-        return [d for d in data if not d.get("deletedAt")] if isinstance(data, list) else []
+        active = (
+            [d for d in data if not d.get("deletedAt")]
+            if isinstance(data, list)
+            else []
+        )
+        owner = str(self.user.get("id") or self.user.get("uid") or "")
+        if not owner:
+            return []
+        return [d for d in active if str(d.get("endUserId")) == owner]
 
     async def list_home_controllers(self, dormitory_id: str) -> list[dict[str, Any]]:
         data = await self._post(

@@ -109,6 +109,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("no home available")
 
     dormitory_id = entry.data.get(CONF_DORMITORY) or dormitories[0]["id"]
+    if dormitory_id not in {d["id"] for d in dormitories}:
+        raise ConfigEntryNotReady("home is not owned by this account")
     hub = RangDongHub(session, api.base_url, lambda: api.token or "")
     coordinator = RalliSmartCoordinator(hass, api, hub, dormitory_id, config_entry=entry)
     coordinator.licensed = True

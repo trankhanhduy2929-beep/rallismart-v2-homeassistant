@@ -305,8 +305,11 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         entry = (self.data or {}).get(uid)
         if not entry:
             raise RalliSmartApiError("unknown device")
+        hc = entry.get("hc")
+        if not hc:
+            raise RalliSmartApiError("device is not connected to a home controller")
         await self._send(
-            device_flash_message(entry["device"], entry["hc"].get("macAddress"), on=True)
+            device_flash_message(entry["device"], hc.get("macAddress"), on=True)
         )
 
     # ---------- scenes ----------
