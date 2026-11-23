@@ -232,6 +232,22 @@ class RalliSmartApi:
             return []
         return [s for s in data if not s.get("deletedAt")]
 
+    async def list_device_attribute_values(
+        self, dormitory_id: str
+    ) -> list[dict[str, Any]]:
+        """Last known device attribute values for one home.
+
+        Used to fill initial state and to catch up after a SignalR reconnect;
+        live changes still arrive through the hub push channel.
+        """
+        data = await self._post(
+            ROUTE_SYNC,
+            "listDeviceAttributeValue",
+            self._filter_body(),
+            headers={"X-DormitoryId": str(dormitory_id)},
+        )
+        return data if isinstance(data, list) else []
+
     # ---------- cameras ----------
 
     async def camera_attributes(self, dormitory_id: str) -> list[dict[str, Any]]:

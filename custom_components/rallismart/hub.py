@@ -59,6 +59,10 @@ class RangDongHub:
         self._reader: asyncio.Task | None = None
         self._next_id = 1
         self._listeners: list[Callable[[str, list[Any]], None]] = []
+        self._reconnect_listeners: list[Callable[[], None]] = []
+        self._connect_lock = asyncio.Lock()
+        self._reconnect_task: asyncio.Task | None = None
+        self._closing = False
 
     @property
     def _token(self) -> str:
@@ -66,6 +70,9 @@ class RangDongHub:
 
     def add_listener(self, cb: Callable[[str, list[Any]], None]) -> None:
         self._listeners.append(cb)
+
+    def add_reconnect_listener(self, cb: Callable[[], None]) -> None:
+        self._reconnect_listeners.append(cb)
 
     def connected(self) -> bool:
         return self._ws is not None and not self._ws.closed
@@ -76,22 +83,38 @@ class RangDongHub:
             await self.connect()
 
     async def connect(self) -> None:
-        if self._ws is not None and not self._ws.closed:
-            return
-        conn_token = await self._negotiate()
-        scheme = "wss" if self._base.startswith("https") else "ws"
-        host = self._base.split("://", 1)[1]
-        url = f"{scheme}://{host}/{self._hub}?id={conn_token}"
-        self._ws = await self._session.ws_connect(
-            url,
-            headers={"Authorization": f"Bearer {self._token}"},
-            heartbeat=30,
-        )
-        await self._ws.send_str('{"protocol":"json","version":1}\x1e')
-        msg = await self._ws.receive()
-        if msg.type != aiohttp.WSMsgType.TEXT or msg.data.strip("\x1e") not in ("", "{}"):
-            raise RangDongHubError("signalr handshake failed")
-        self._reader = asyncio.ensure_future(self._read_loop())
+        async with self._connect_lock:
+            if self._ws is not None and not self._ws.closed:
+                return
+            self._closing = False
+            if self._ws is not None:
+                try:
+                    await self._ws.close()
+                except Exception:
+                    _LOGGER.debug("closing stale websocket failed", exc_info=True)
+                self._ws = None
+            conn_token = await self._negotiate()
+            scheme = "wss" if self._base.startswith("https") else "ws"
+            host = self._base.split("://", 1)[1]
+            url = f"{scheme}://{host}/{self._hub}?id={conn_token}"
+            ws = await self._session.ws_connect(
+                url,
+                headers={"Authorization": f"Bearer {self._token}"},
+                heartbeat=30,
+            )
+            self._ws = ws
+            try:
+                await ws.send_str('{"protocol":"json","version":1}\x1e')
+                msg = await ws.receive()
+                if msg.type != aiohttp.WSMsgType.TEXT or msg.data.strip(
+                    "\x1e"
+                ) not in ("", "{}"):
+                    raise RangDongHubError("signalr handshake failed")
+            except Exception:
+                await ws.close()
+                self._ws = None
+                raise
+            self._reader = asyncio.ensure_future(self._read_loop())
 
     async def _negotiate(self) -> str:
         url = f"{self._base}/{self._hub}/negotiate?negotiateVersion=1"
@@ -107,9 +130,10 @@ class RangDongHub:
         return token
 
     async def _read_loop(self) -> None:
-        assert self._ws is not None
+        ws = self._ws
+        assert ws is not None
         try:
-            async for msg in self._ws:
+            async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
                     for frame in msg.data.split("\x1e"):
                         if frame:
@@ -120,6 +144,37 @@ class RangDongHub:
             raise
         except Exception:
             _LOGGER.debug("signalr reader stopped", exc_info=True)
+        finally:
+            if self._ws is ws:
+                self._ws = None
+            if not self._closing and self._ws is None:
+                self._schedule_reconnect()
+
+    def _schedule_reconnect(self) -> None:
+        if self._closing:
+            return
+        if self._reconnect_task and not self._reconnect_task.done():
+            return
+        self._reconnect_task = asyncio.ensure_future(self._reconnect())
+
+    async def _reconnect(self) -> None:
+        delay = 1.0
+        while not self._closing and not self.connected():
+            await asyncio.sleep(delay)
+            if self._closing:
+                return
+            try:
+                await self.connect()
+            except Exception:
+                delay = min(delay * 2, 30.0)
+                _LOGGER.debug("signalr reconnect failed", exc_info=True)
+                continue
+            for cb in list(self._reconnect_listeners):
+                try:
+                    cb()
+                except Exception:
+                    _LOGGER.debug("reconnect listener error", exc_info=True)
+            return
 
     async def _dispatch(self, frame: str) -> None:
         try:
@@ -154,6 +209,10 @@ class RangDongHub:
         await self._ws.send_str(json.dumps(invocation) + "\x1e")
 
     async def close(self) -> None:
+        self._closing = True
+        if self._reconnect_task:
+            self._reconnect_task.cancel()
+            self._reconnect_task = None
         if self._reader:
             self._reader.cancel()
             self._reader = None

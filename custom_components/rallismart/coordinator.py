@@ -66,6 +66,13 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self.hub = hub
         self.dormitory_id = dormitory_id
         self.dormitory_name = dormitory_name
+        # The first refresh (and the one after a SignalR reconnect) fills state
+        # from the cloud so a missed push cannot leave entities stale.
+        self._needs_state_sync = True
+        self._push_seq = 0
+        add_reconnect_listener = getattr(hub, "add_reconnect_listener", None)
+        if add_reconnect_listener is not None:
+            add_reconnect_listener(self._handle_reconnect)
         self.hubs: dict[str, dict[str, Any]] = {}
         self.rooms: dict[str, dict[str, Any]] = {}
         self.scenes: list[dict[str, Any]] = []
@@ -125,8 +132,41 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             }
 
         self._build_panels([d for d in devices])
+        if self._needs_state_sync:
+            await self._sync_cloud_states(inventory)
         await self._refresh_tuya_states(inventory)
         return inventory
+
+    @callback
+    def _handle_reconnect(self) -> None:
+        """Reconnect refresh: fetch current values instead of waiting for a push."""
+        self._needs_state_sync = True
+        self.hass.async_create_task(self.async_request_refresh())
+
+    async def _sync_cloud_states(
+        self, inventory: dict[str, dict[str, Any]]
+    ) -> None:
+        push_seq = self._push_seq
+        try:
+            rows = await self.api.list_device_attribute_values(self.dormitory_id)
+        except Exception:
+            _LOGGER.debug("cloud state sync failed", exc_info=True)
+            return
+        if self._push_seq != push_seq:
+            # A live push arrived while the REST snapshot was in flight; keep
+            # the newer value and try the catch-up again on the next refresh.
+            return
+        for row in rows:
+            uid = str(row.get("deviceId"))
+            entry = inventory.get(uid)
+            if not entry or not entry.get("hc"):
+                continue
+            try:
+                attr_id = int(row["deviceAttributeId"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            entry["state"][attr_id] = row.get("value")
+        self._needs_state_sync = False
 
     async def _refresh_tuya_states(self, inventory: dict[str, dict[str, Any]]) -> None:
         """Poll DP values for Tuya WiFi switches (no push channel without HC)."""
@@ -207,6 +247,8 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             self._apply_attribute_values(data)
         elif entity == ENTITY_DEVICE_RESPONSE:
             self._apply_device_response(data)
+        elif entity == "Command":
+            self._apply_command(data)
 
     def _apply_attribute_values(self, entries: Any) -> None:
         if not isinstance(entries, list) or not self.data:
@@ -220,7 +262,19 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             entry["state"][int(item["deviceAttributeId"])] = item.get("value")
             changed = True
         if changed:
+            self._push_seq += 1
             self.async_set_updated_data(self.data)
+
+    def _apply_command(self, data: Any) -> None:
+        """Apply another client's command immediately (e.g. the phone app).
+
+        The hub broadcasts commands to every connection before the HC confirms
+        them; using that broadcast removes most of the perceived latency when a
+        change originates outside Home Assistant.
+        """
+        if not isinstance(data, dict) or data.get("CMD") != "DEVICE":
+            return
+        self._apply_device_response({"DATA": data.get("DATA")})
 
     def _apply_device_response(self, data: Any) -> None:
         if not self.data or not isinstance(data, dict):
@@ -240,6 +294,7 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 entry["state"][int(prop["ID"])] = prop.get("VALUE")
                 changed = True
         if changed:
+            self._push_seq += 1
             self.async_set_updated_data(self.data)
 
     # ---------- state accessors ----------

@@ -25,7 +25,7 @@ Website, database Neon và webhook PayOS đã được triển khai. Đăng ký 
 
 ## Cài thủ công
 
-1. Giải nén `rallismart-custom-0.6.2.zip`.
+1. Giải nén `rallismart-custom-0.6.3.zip`.
 2. Copy thư mục `custom_components/rallismart` vào `/config/custom_components/rallismart`.
 3. Khởi động lại Home Assistant, rồi thêm integration như trên.
 
@@ -39,6 +39,7 @@ Zip chỉ chứa thành phần cần cài và hướng dẫn, không chứa serv
 4. Tài khoản, nhà, entity unique ID và các nút công tắc giữ nguyên.
    - Entry cũ chỉ có một nhà sẽ tự mở rộng ra mọi nhà của tài khoản.
    - Nếu trước đây đã thêm nhiều entry cho cùng tài khoản, mỗi entry tiếp tục phụ trách nhà của nó (không tạo entity trùng). Có thể xóa các entry thừa và giữ lại một entry duy nhất.
+   - Bản 0.6.3 áp dụng ngay thay đổi từ app và tự đồng bộ lại sau khi SignalR nối lại; không cần xóa entry hay entity.
 5. Vào Settings → Devices & Services → RalliSmart V2 → **Configure / Cấu hình** để nhập hoặc thay License Key. Việc lưu key sẽ nạp lại entry đó.
 
 Nếu entry cũ chưa có key, thông báo tương thích sẽ hiện link website; thiết bị không bị chặn chỉ vì nâng cấp. Sau khi nhập key, entry chuyển sang kiểm tra license. Cài đặt mới luôn yêu cầu key hợp lệ.
@@ -69,6 +70,7 @@ Không chia sẻ key, thư mục `.storage` hay bản sao cấu hình HA. Cơ ch
 ## Chức năng và giới hạn
 
 - Công tắc nhiều nút: từng gang là entity riêng, gom vào thiết bị panel; giữ riêng địa chỉ điều khiển từng gang.
+- Thay đổi từ app RalliSmart được HA áp dụng ngay khi cloud phát bản tin `Command`, không chờ HC xác nhận. SignalR tự nối lại khi mất kết nối và đồng bộ lại trạng thái sau đó.
 - Nhiều nhà trong cùng một entry: tên thiết bị, scene và camera được thêm tiền tố tên nhà (ví dụ `Nha · Đèn phòng khách`) để dễ nhận biết; entity ID và unique ID giữ nguyên.
 - Công tắc WiFi Tuya (kể cả nhà có HC): mỗi gang là entity riêng, trạng thái cập nhật mỗi 30 giây và điều khiển qua cloud proxy.
 - Chỉ nhà thuộc tài khoản đang đăng nhập mới hiện trong danh sách; nhà của tài khoản khác bị ẩn.
@@ -77,7 +79,7 @@ Không chia sẻ key, thư mục `.storage` hay bản sao cấu hình HA. Cơ ch
 - Sensor/binary sensor: chỉ hiện cho model đã có mapping, không tạo sensor giả cho nhà không có thiết bị đó.
 - Camera: HA cần truy cập được mạng chứa camera và URL RTSP hợp lệ; danh sách camera rỗng không chứng minh camera không có cấu hình trên app.
 - Scene và Identify: có thể thay đổi nhiều tải điện. Kiểm tra thiết bị đích trước khi nhấn. Chưa xác nhận đầy đủ trên phần cứng.
-- Trạng thái ban đầu có thể unknown cho tới khi nhận push. Không khẳng định mọi chức năng app gốc đã được hỗ trợ.
+- Trạng thái ban đầu được đồng bộ một lần từ cloud; thiết bị không có giá trị trên cloud vẫn có thể unknown cho tới khi nhận push. Không khẳng định mọi chức năng app gốc đã được hỗ trợ.
 
 ## Báo lỗi
 
