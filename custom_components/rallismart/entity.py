@@ -8,6 +8,12 @@ from .const import DOMAIN
 from .coordinator import RalliSmartCoordinator
 
 
+def prefixed_name(coordinator: RalliSmartCoordinator, name: str) -> str:
+    """Prefix a name with its home so multi-home devices stay grouped."""
+    home = getattr(coordinator, "dormitory_name", "") or ""
+    return f"{home} · {name}" if home else name
+
+
 class RalliSmartEntity(CoordinatorEntity[RalliSmartCoordinator]):
     """Common device_info / naming for panel-based entities.
 
@@ -27,7 +33,7 @@ class RalliSmartEntity(CoordinatorEntity[RalliSmartCoordinator]):
         self._attr_name = None if size <= 1 else f"Gang {gang}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"panel_{panel_id}")},
-            name=panel_name,
+            name=prefixed_name(coordinator, panel_name),
             manufacturer="Rang Dong",
             model=str(parent.get("deviceTypeId") or ""),
         )

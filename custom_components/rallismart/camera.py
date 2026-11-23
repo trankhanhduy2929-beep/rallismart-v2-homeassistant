@@ -13,11 +13,14 @@ from typing import Any
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import DOMAIN
 from .control import is_camera
 from .coordinator import RalliSmartCoordinator, coordinators_for
+from .entity import prefixed_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -86,9 +89,16 @@ class RalliSmartCamera(CoordinatorEntity[RalliSmartCoordinator], Camera):
         self._uid = uid
         self._stream_url = url
         device = coordinator.data[uid]["device"]
+        panel_id, panel_name, _, _ = coordinator.group(uid)
         self._attr_unique_id = f"rallismart_{uid}"
-        self._attr_name = device.get("name")
+        self._attr_name = prefixed_name(coordinator, device.get("name") or uid)
         self._attr_brand = "Dahua" if device.get("deviceTypeId") == 61002 else "Hikvision"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"panel_{panel_id}")},
+            name=prefixed_name(coordinator, panel_name),
+            manufacturer="Rang Dong",
+            model=str(device.get("deviceTypeId") or ""),
+        )
 
     @property
     def use_stream_for_stills(self) -> bool:

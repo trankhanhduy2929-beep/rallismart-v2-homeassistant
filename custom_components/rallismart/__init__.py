@@ -155,7 +155,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinators: dict[str, RalliSmartCoordinator] = {}
     for home in homes:
         coordinator = RalliSmartCoordinator(
-            hass, api, hub, home["id"], config_entry=entry
+            hass,
+            api,
+            hub,
+            home["id"],
+            dormitory_name=(
+                (home.get("name") or home["id"]) if len(homes) > 1 else ""
+            ),
+            config_entry=entry,
         )
         coordinator.licensed = True
         hub.add_listener(coordinator.handle_hub_message)

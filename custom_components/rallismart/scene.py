@@ -11,6 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import RalliSmartCoordinator, coordinators_for
+from .entity import prefixed_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +35,9 @@ class RalliSmartScene(CoordinatorEntity[RalliSmartCoordinator], Scene):
         super().__init__(coordinator)
         self._scene_id = str(scene["id"])
         self._attr_unique_id = f"rallismart_scene_{self._scene_id}"
-        self._attr_name = scene.get("name") or f"Scene {self._scene_id}"
+        self._attr_name = prefixed_name(
+            coordinator, scene.get("name") or f"Scene {self._scene_id}"
+        )
 
     @property
     def available(self) -> bool:

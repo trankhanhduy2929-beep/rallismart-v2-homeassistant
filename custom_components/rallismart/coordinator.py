@@ -52,6 +52,7 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         api: RalliSmartApi,
         hub: RangDongHub,
         dormitory_id: str,
+        dormitory_name: str = "",
         config_entry: ConfigEntry | None = None,
     ) -> None:
         super().__init__(
@@ -64,6 +65,7 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self.api = api
         self.hub = hub
         self.dormitory_id = dormitory_id
+        self.dormitory_name = dormitory_name
         self.hubs: dict[str, dict[str, Any]] = {}
         self.rooms: dict[str, dict[str, Any]] = {}
         self.scenes: list[dict[str, Any]] = []

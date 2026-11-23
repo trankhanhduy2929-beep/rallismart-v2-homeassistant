@@ -25,7 +25,7 @@ Website, database Neon và webhook PayOS đã được triển khai. Đăng ký 
 
 ## Cài thủ công
 
-1. Giải nén `rallismart-custom-0.6.1.zip`.
+1. Giải nén `rallismart-custom-0.6.2.zip`.
 2. Copy thư mục `custom_components/rallismart` vào `/config/custom_components/rallismart`.
 3. Khởi động lại Home Assistant, rồi thêm integration như trên.
 
@@ -69,6 +69,7 @@ Không chia sẻ key, thư mục `.storage` hay bản sao cấu hình HA. Cơ ch
 ## Chức năng và giới hạn
 
 - Công tắc nhiều nút: từng gang là entity riêng, gom vào thiết bị panel; giữ riêng địa chỉ điều khiển từng gang.
+- Nhiều nhà trong cùng một entry: tên thiết bị, scene và camera được thêm tiền tố tên nhà (ví dụ `Nha · Đèn phòng khách`) để dễ nhận biết; entity ID và unique ID giữ nguyên.
 - Công tắc WiFi Tuya (kể cả nhà có HC): mỗi gang là entity riêng, trạng thái cập nhật mỗi 30 giây và điều khiển qua cloud proxy.
 - Chỉ nhà thuộc tài khoản đang đăng nhập mới hiện trong danh sách; nhà của tài khoản khác bị ẩn.
 - Đèn: on/off; DIM/CCT/RGB có mapping hiện có nhưng chưa kiểm chứng đủ mọi model.
