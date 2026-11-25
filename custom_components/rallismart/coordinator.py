@@ -41,6 +41,9 @@ _LOGGER = logging.getLogger(__name__)
 ENTITY_ATTRIBUTE_VALUE = "HC-DeviceAttributeValue"
 ENTITY_DEVICE_RESPONSE = "DeviceResponse"
 
+# Follow-up polls after a Tuya rolling-door command (seconds, cumulative).
+TUYA_FAST_POLL_DELAYS = (1, 3, 6, 10)
+
 
 def coordinators_for(
     hass: HomeAssistant, entry: ConfigEntry
@@ -101,6 +104,8 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         self.panel_member: dict[str, dict[int, str]] = {}
         # Set False by the license heartbeat to disable entities.
         self.licensed = True
+        self._tuya_poll_delays: tuple[float, ...] = TUYA_FAST_POLL_DELAYS
+        self._tuya_poll_tasks: dict[str, asyncio.Task[None]] = {}
 
     async def _fetch_inventory(self) -> tuple[list, list, list, list]:
         hubs = await self.api.list_home_controllers(self.dormitory_id)
@@ -263,6 +268,39 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             return
         if status:
             entry["tuya_state"] = status
+
+    def _schedule_tuya_followup(self, uid: str) -> None:
+        """Poll a rolling door shortly after a command, then hand back to 30 s."""
+        previous = self._tuya_poll_tasks.pop(uid, None)
+        if previous is not None:
+            previous.cancel()
+        self._tuya_poll_tasks[uid] = self.hass.async_create_task(
+            self._poll_tuya_after_command(uid)
+        )
+
+    async def _poll_tuya_after_command(self, uid: str) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            start = loop.time()
+            for delay in self._tuya_poll_delays:
+                await asyncio.sleep(max(0, start + delay - loop.time()))
+                entry = (self.data or {}).get(uid)
+                if not entry or not is_tuya_rolling_door(entry["device"]):
+                    return
+                tuya_id = str(entry["device"].get("tuyaId") or "")
+                if not tuya_id:
+                    return
+                await self._load_tuya_properties(entry, tuya_id)
+                self.async_set_updated_data(self.data)
+        finally:
+            if self._tuya_poll_tasks.get(uid) is asyncio.current_task():
+                self._tuya_poll_tasks.pop(uid, None)
+
+    async def async_shutdown(self) -> None:
+        for task in list(self._tuya_poll_tasks.values()):
+            task.cancel()
+        self._tuya_poll_tasks.clear()
+        await super().async_shutdown()
 
     def _build_panels(self, devices: list[dict[str, Any]]) -> None:
         """Group multi-gang panels: parent device + its children."""
@@ -616,6 +654,7 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         )
         entry.setdefault("tuya_state", {})[code] = value
         self.async_set_updated_data(self.data)
+        self._schedule_tuya_followup(uid)
 
     async def async_cover(self, uid: str, action: str) -> None:
         entry = (self.data or {}).get(uid)
