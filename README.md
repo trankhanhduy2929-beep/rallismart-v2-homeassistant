@@ -25,7 +25,7 @@ Website, database Neon và webhook PayOS đã được triển khai. Đăng ký 
 
 ## Cài thủ công
 
-1. Giải nén `rallismart-custom-0.6.6.zip`.
+1. Giải nén `rallismart-custom-0.6.7.zip`.
 2. Copy thư mục `custom_components/rallismart` vào `/config/custom_components/rallismart`.
 3. Khởi động lại Home Assistant, rồi thêm integration như trên.
 
@@ -41,7 +41,8 @@ Zip chỉ chứa thành phần cần cài và hướng dẫn, không chứa serv
    - Nếu trước đây đã thêm nhiều entry cho cùng tài khoản, mỗi entry tiếp tục phụ trách nhà của nó (không tạo entity trùng). Có thể xóa các entry thừa và giữ lại một entry duy nhất.
    - Bản 0.6.4 thêm HC firmware v2 qua cloud MQTT (panel 2/3/4 nút), giữ nguyên entity/unique ID; không cần xóa entry hay entity.
    - Bản 0.6.5 thêm camera độc lập của app RalliSmart 1.5.3 (không cần HC/Tuya), giữ nguyên entity/unique ID hiện có.
-   - Bản 0.6.6 thêm cover cho cửa cuốn WiFi Tuya (`45001`): mở/dừng/đóng và đặt % mở qua cloud proxy; đã xác minh lệnh `stop` trên thiết bị thật, chưa chạy thử đóng/mở thật.
+   - Bản 0.6.6 thêm cover cho cửa cuốn WiFi Tuya (`45001`): mở/dừng/đóng và đặt % mở qua cloud proxy.
+   - Bản 0.6.7 sửa vị trí cover lấy từ `percent_control` (đúng DP app dùng cho `OPENED`) thay vì `percent_state` luôn bằng 0, khắc phục nút đóng bị mờ và trạng thái không đổi; lệnh mở/đóng cập nhật vị trí ngay trên HA.
    - HC v2 được poll trạng thái mỗi 30 giây vì chưa xác nhận có push; HC v1 vẫn nhận thay đổi ngay qua SignalR.
 5. Vào Settings → Devices & Services → RalliSmart V2 → **Configure / Cấu hình** để nhập hoặc thay License Key. Việc lưu key sẽ nạp lại entry đó.
 
@@ -77,7 +78,7 @@ Không chia sẻ key, thư mục `.storage` hay bản sao cấu hình HA. Cơ ch
 - Nhiều nhà trong cùng một entry: tên thiết bị, scene và camera được thêm tiền tố tên nhà (ví dụ `Nha · Đèn phòng khách`) để dễ nhận biết; entity ID và unique ID giữ nguyên.
 - HC v2: panel 2/3/4 nút dùng MQTT; mỗi gang là entity riêng, điều khiển qua id panel cha và trường `bt`/`bt2`/`bt3`/`bt4`. Trạng thái được poll mỗi 30 giây.
 - Công tắc WiFi Tuya (kể cả nhà có HC): mỗi gang là entity riêng, trạng thái cập nhật mỗi 30 giây và điều khiển qua cloud proxy.
-- Cửa cuốn WiFi Tuya (`45001`): là một cover, hỗ trợ mở/dừng/đóng và đặt % mở; trạng thái cập nhật mỗi 30 giây. Đã xác minh đường dẫn lệnh bằng lệnh `stop`, chưa chạy thử đóng/mở thật.
+- Cửa cuốn WiFi Tuya (`45001`): là một cover, hỗ trợ mở/dừng/đóng và đặt % mở; vị trí đọc từ `percent_control` và cập nhật mỗi 30 giây. Đã xác minh đường dẫn lệnh bằng lệnh `stop`, chưa chạy thử đóng/mở thật.
 - Chỉ nhà thuộc tài khoản đang đăng nhập mới hiện trong danh sách; nhà của tài khoản khác bị ẩn.
 - Đèn: on/off; DIM/CCT/RGB có mapping hiện có nhưng chưa kiểm chứng đủ mọi model. Với HC v2, mapping JSON `onoff`/`dim`/`cct`/`h`/`s`/`l` mới chỉ kiểm thử bằng unit test, chưa có đèn v2 thực tế.
 - Rèm/cửa cuốn: giữ chức năng hiện có; chiều và tính năng chưa được kiểm chứng đầy đủ, cần quan sát trực tiếp khi dùng lần đầu.

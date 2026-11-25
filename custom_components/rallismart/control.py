@@ -90,10 +90,11 @@ _SENSOR_TYPES = {
 _CAMERA_TYPES = frozenset({61001, 61002, 61003, 61004, 61005, 61006, 61007})
 # Tuya WiFi wall switches (no Home Controller): one DP per gang.
 _TUYA_SWITCH_GANGS = {43001: 1, 43002: 2, 43003: 3, 43004: 4}
-# Tuya WiFi rolling door: percent_control is the open percentage (0..100);
-# percent_state is the reported position and control the last command.
+# Tuya WiFi rolling door: percent_control is the reported/requested open
+# percentage (0..100), matching the app's OPENED attribute. percent_state is
+# kept as a fallback because some firmwares expose it instead.
 TUYA_ROLLING_DOOR = 45001
-TUYA_ROLLING_DOOR_POSITION = ("percent_state", "percent_control")
+TUYA_ROLLING_DOOR_POSITION = ("percent_control", "percent_state")
 
 
 def _type_id(device: dict[str, Any]) -> int:

@@ -81,8 +81,8 @@ class RalliSmartCover(RalliSmartEntity, CoverEntity):
 class RalliSmartTuyaRollingDoor(RalliSmartEntity, CoverEntity):
     """Tuya WiFi rolling door driven by the Rang Dong Tuya proxy.
 
-    ``percent_control`` is the requested open percentage; ``percent_state``
-    reports the actual position. Home Assistant shows the open percentage.
+    ``percent_control`` is the app's OPENED attribute (reported/requested open
+    percentage); ``percent_state`` is only a fallback for other firmwares.
     """
 
     _attr_device_class = CoverDeviceClass.SHUTTER

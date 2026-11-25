@@ -621,6 +621,11 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         entry = (self.data or {}).get(uid)
         if entry and is_tuya_rolling_door(entry["device"]):
             await self.async_set_tuya_property(uid, "control", action)
+            if action in ("open", "close"):
+                entry.setdefault("tuya_state", {})["percent_control"] = (
+                    100 if action == "open" else 0
+                )
+                self.async_set_updated_data(self.data)
             return
         await self.async_send_properties(uid, cover_properties(action))
 
