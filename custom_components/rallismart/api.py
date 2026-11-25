@@ -317,6 +317,42 @@ class RalliSmartApi:
         if isinstance(data, dict) and data.get("success") is False:
             raise RalliSmartApiError(f"Tuya command rejected ({data.get('code')})")
 
+    async def tuya_get_device_properties(self, tuya_id: str) -> dict[str, Any]:
+        """Return all DP values for one Tuya device via ``query-properties``."""
+        data = await self._post(
+            ROUTE_TUYA_CORE,
+            "queryProperties",
+            {
+                "param": {"device_id": tuya_id},
+                "query": {},
+                "body": {},
+            },
+        )
+        result = data.get("result") if isinstance(data, dict) else data
+        rows = result.get("properties") if isinstance(result, dict) else result
+        status: dict[str, Any] = {}
+        if isinstance(rows, list):
+            for item in rows:
+                if isinstance(item, dict) and item.get("code"):
+                    status[str(item["code"])] = item.get("value")
+        return status
+
+    async def tuya_send_property(
+        self, tuya_id: str, properties: dict[str, Any]
+    ) -> None:
+        """Send DPs through ``send-property`` (rolling door control path)."""
+        data = await self._post(
+            ROUTE_TUYA_CORE,
+            "sendProperty",
+            {
+                "param": {"device_id": tuya_id},
+                "query": {},
+                "body": {"properties": properties},
+            },
+        )
+        if isinstance(data, dict) and data.get("success") is False:
+            raise RalliSmartApiError(f"Tuya command rejected ({data.get('code')})")
+
     # ---------- MQTT (alternate transport, unused by HC v1 path) ----------
 
     async def mqtt_auth(self, phone_id: str) -> dict[str, Any]:

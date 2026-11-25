@@ -90,6 +90,10 @@ _SENSOR_TYPES = {
 _CAMERA_TYPES = frozenset({61001, 61002, 61003, 61004, 61005, 61006, 61007})
 # Tuya WiFi wall switches (no Home Controller): one DP per gang.
 _TUYA_SWITCH_GANGS = {43001: 1, 43002: 2, 43003: 3, 43004: 4}
+# Tuya WiFi rolling door: percent_control is the open percentage (0..100);
+# percent_state is the reported position and control the last command.
+TUYA_ROLLING_DOOR = 45001
+TUYA_ROLLING_DOOR_POSITION = ("percent_state", "percent_control")
 
 
 def _type_id(device: dict[str, Any]) -> int:
@@ -136,6 +140,10 @@ def is_switch(device: dict[str, Any]) -> bool:
 def is_tuya(device: dict[str, Any]) -> bool:
     """Tuya WiFi device (no Home Controller; controlled via the cloud proxy)."""
     return bool(device.get("tuyaId"))
+
+def is_tuya_rolling_door(device: dict[str, Any]) -> bool:
+    """Tuya WiFi rolling door (uses ``query-properties``/``send-property``)."""
+    return is_tuya(device) and _type_id(device) == TUYA_ROLLING_DOOR
 
 def tuya_switch_codes(device: dict[str, Any]) -> list[str]:
     """Tuya DP codes for a WiFi wall switch, e.g. ``switch_1``..``switch_4``."""

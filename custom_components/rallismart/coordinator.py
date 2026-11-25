@@ -26,6 +26,7 @@ from .control import (
     device_flash_message,
     is_camera,
     is_tuya,
+    is_tuya_rolling_door,
     power_properties,
     scene_message,
     tuya_switch_codes,
@@ -141,7 +142,9 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             # Tuya WiFi devices and standalone cameras have no Home
             # Controller; they are driven via the cloud and must not be
             # dropped with unsupported HCs.
-            if not hc and not (tuya_switch_codes(dev) or is_camera(dev)):
+            if not hc and not (
+                tuya_switch_codes(dev) or is_tuya_rolling_door(dev) or is_camera(dev)
+            ):
                 continue
             uid = str(dev["id"])
             previous = (self.data or {}).get(uid, {}).get("state", {})
@@ -225,12 +228,17 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 member["state"][ATTR_STATUS] = value
 
     async def _refresh_tuya_states(self, inventory: dict[str, dict[str, Any]]) -> None:
-        """Poll DP values for Tuya WiFi switches (no push channel without HC)."""
-        tasks = [
-            self._load_tuya_state(entry, str(entry["device"]["tuyaId"]))
-            for entry in inventory.values()
-            if tuya_switch_codes(entry["device"])
-        ]
+        """Poll DP values for Tuya WiFi devices without a push channel."""
+        tasks = []
+        for entry in inventory.values():
+            device = entry["device"]
+            tuya_id = str(device.get("tuyaId") or "")
+            if not tuya_id:
+                continue
+            if tuya_switch_codes(device):
+                tasks.append(self._load_tuya_state(entry, tuya_id))
+            elif is_tuya_rolling_door(device):
+                tasks.append(self._load_tuya_properties(entry, tuya_id))
         if tasks:
             await asyncio.gather(*tasks)
 
@@ -241,6 +249,17 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             status = await self.api.tuya_get_device_status(tuya_id)
         except Exception:
             _LOGGER.debug("Tuya status failed for %s", tuya_id, exc_info=True)
+            return
+        if status:
+            entry["tuya_state"] = status
+
+    async def _load_tuya_properties(
+        self, entry: dict[str, Any], tuya_id: str
+    ) -> None:
+        try:
+            status = await self.api.tuya_get_device_properties(tuya_id)
+        except Exception:
+            _LOGGER.debug("Tuya properties failed for %s", tuya_id, exc_info=True)
             return
         if status:
             entry["tuya_state"] = status
@@ -584,7 +603,25 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         entry.setdefault("tuya_state", {})[code] = on
         self.async_set_updated_data(self.data)
 
+    async def async_set_tuya_property(
+        self, uid: str, code: str, value: Any
+    ) -> None:
+        if not self.licensed:
+            raise RalliSmartApiError("License inactive; update License Key in Options")
+        entry = (self.data or {}).get(uid)
+        if not entry or not is_tuya_rolling_door(entry["device"]):
+            raise RalliSmartApiError("unknown Tuya rolling door")
+        await self.api.tuya_send_property(
+            str(entry["device"]["tuyaId"]), {code: value}
+        )
+        entry.setdefault("tuya_state", {})[code] = value
+        self.async_set_updated_data(self.data)
+
     async def async_cover(self, uid: str, action: str) -> None:
+        entry = (self.data or {}).get(uid)
+        if entry and is_tuya_rolling_door(entry["device"]):
+            await self.async_set_tuya_property(uid, "control", action)
+            return
         await self.async_send_properties(uid, cover_properties(action))
 
     async def _send(self, message: dict[str, Any]) -> None:
