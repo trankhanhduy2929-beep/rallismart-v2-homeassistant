@@ -12,6 +12,8 @@ from typing import Any
 
 import aiohttp
 
+from .control import is_camera
+
 _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://rallismartv2.rangdong.com.vn"
@@ -190,7 +192,7 @@ class RalliSmartApi:
         ]
 
     async def list_devices(self, dormitory_id: str) -> list[dict[str, Any]]:
-        """Devices of this home: HC children plus Tuya WiFi devices."""
+        """Devices of this home: HC children, Tuya WiFi, and standalone cameras."""
         data = await self._post(
             ROUTE_SYNC,
             "listDevice",
@@ -206,7 +208,11 @@ class RalliSmartApi:
             d
             for d in data
             if d.get("dormitoryId") == dormitory_id
-            and (d.get("homeControllerId") in hub_ids or d.get("tuyaId"))
+            and (
+                d.get("homeControllerId") in hub_ids
+                or d.get("tuyaId")
+                or is_camera(d)
+            )
             and not d.get("deletedAt")
         ]
 

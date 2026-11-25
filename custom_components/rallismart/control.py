@@ -87,7 +87,7 @@ _SENSOR_TYPES = {
     39004: ("ec", "sensor"),
     39005: ("oxygen", "sensor"),
 }
-_CAMERA_TYPES = frozenset({61001, 61002, 61003})
+_CAMERA_TYPES = frozenset({61001, 61002, 61003, 61004, 61005, 61006, 61007})
 # Tuya WiFi wall switches (no Home Controller): one DP per gang.
 _TUYA_SWITCH_GANGS = {43001: 1, 43002: 2, 43003: 3, 43004: 4}
 

@@ -26,6 +26,15 @@ _LOGGER = logging.getLogger(__name__)
 
 _ID_KEYS = ("deviceId", "device_id", "cameraId", "camera_id", "id")
 _URL_KEYS = ("cam_url", "camUrl", "Cam_url", "rtspUrl", "url")
+_CAMERA_BRANDS = {
+    61001: "Tuya",
+    61002: "Dahua",
+    61003: "Dahua",
+    61004: "Viettel",
+    61005: "Hikvision",
+    61006: "Hikvision",
+    61007: "Rang Dong",
+}
 
 
 def _row_device_id(row: dict[str, Any]) -> str | None:
@@ -92,7 +101,11 @@ class RalliSmartCamera(CoordinatorEntity[RalliSmartCoordinator], Camera):
         panel_id, panel_name, _, _ = coordinator.group(uid)
         self._attr_unique_id = f"rallismart_{uid}"
         self._attr_name = prefixed_name(coordinator, device.get("name") or uid)
-        self._attr_brand = "Dahua" if device.get("deviceTypeId") == 61002 else "Hikvision"
+        try:
+            type_id = int(device.get("deviceTypeId") or 0)
+        except (TypeError, ValueError):
+            type_id = 0
+        self._attr_brand = _CAMERA_BRANDS.get(type_id, "Rang Dong")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"panel_{panel_id}")},
             name=prefixed_name(coordinator, panel_name),

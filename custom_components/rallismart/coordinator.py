@@ -24,6 +24,7 @@ from .control import (
     build_device_message,
     cover_properties,
     device_flash_message,
+    is_camera,
     is_tuya,
     power_properties,
     scene_message,
@@ -137,9 +138,10 @@ class RalliSmartCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         inventory: dict[str, dict[str, Any]] = {}
         for dev in devices:
             hc = self.hubs.get(dev.get("homeControllerId"))
-            # Tuya WiFi devices have no Home Controller; they are driven via
-            # the cloud proxy and must not be dropped with unsupported HCs.
-            if not hc and not tuya_switch_codes(dev):
+            # Tuya WiFi devices and standalone cameras have no Home
+            # Controller; they are driven via the cloud and must not be
+            # dropped with unsupported HCs.
+            if not hc and not (tuya_switch_codes(dev) or is_camera(dev)):
                 continue
             uid = str(dev["id"])
             previous = (self.data or {}).get(uid, {}).get("state", {})
